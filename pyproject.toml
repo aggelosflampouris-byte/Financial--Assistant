@@ -1,0 +1,18 @@
+[tool.pytest.ini_options]
+testpaths = ["backend/quant/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short --strict-markers"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.pyright]
+include = ["backend"]
+pythonVersion = "3.14"
+typeCheckingMode = "strict"
+reportMissingImports = true
+reportMissingTypeStubs = false

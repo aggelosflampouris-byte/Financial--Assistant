@@ -1,0 +1,34 @@
+version: "3.9"
+# =============================================================================
+# Docker Compose DEV overrides — hot reload, exposed ports, no GPU constraint
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# =============================================================================
+services:
+  gateway:
+    build:
+      context: ./backend/gateway
+      target: dev
+    volumes:
+      - ./backend:/app/backend   # Writable for hot reload
+    command: uvicorn backend.gateway.main:app --host 0.0.0.0 --port 8080 --reload
+    environment:
+      APP_ENV: development
+
+  vllm:
+    # In dev, point to an OpenAI-compatible mock or a smaller local model
+    image: python:3.11-slim
+    command: >
+      sh -c "pip install openai && python -m http.server 8000"
+    environment:
+      VLLM_BASE_URL: http://localhost:8000/v1
+    deploy: {}   # Remove GPU reservation for dev
+
+  streamer:
+    volumes:
+      - ./backend/streaming:/app:rw
+
+  rag_worker:
+    volumes:
+      - ./backend/rag:/app:rw
+    environment:
+      INGEST_MODE: on-demand

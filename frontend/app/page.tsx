@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   TrendingUp, TrendingDown, Shield, Zap, Activity,
   BarChart3, MessageSquare, RefreshCw, AlertCircle, Wallet, DollarSign,
-  PieChart, Sliders, Send, Building2, Newspaper, Layers
+  PieChart, Sliders, Send, Building2, Newspaper, Layers, UploadCloud, Bell
 } from 'lucide-react';
 import { TradingViewChart } from '@/components/charts/TradingViewChart';
 import { PortfolioAllocationView } from '@/components/portfolio/PortfolioAllocationView';
@@ -17,6 +17,8 @@ import { OrderManagementTicket } from '@/components/trading/OrderManagementTicke
 import { QuantRiskStudio } from '@/components/risk/QuantRiskStudio';
 import { FundamentalsStudio } from '@/components/fundamentals/FundamentalsStudio';
 import { MarketNewsWire } from '@/components/news/MarketNewsWire';
+import { DocumentAttachmentStudio } from '@/components/documents/DocumentAttachmentStudio';
+import { AlertsNotificationManager } from '@/components/alerts/AlertsNotificationManager';
 import { HITLConfirmationModal } from '@/components/advisor/HITLConfirmationModal';
 import { usePortfolioStore } from '@/store/portfolioStore';
 import { DEFAULT_TICKERS, ASSET_NAMES, API_BASE } from '@/constants/market';
@@ -217,7 +219,7 @@ function FormattedChatMessage({ content }: { content: string }) {
 export default function DashboardPage() {
   // --- State ---
   const [selectedTicker, setSelectedTicker] = useState('AAPL');
-  const [dashboardTab, setDashboardTab] = useState<'holdings' | 'trading' | 'risk' | 'fundamentals' | 'news' | 'watchlist'>('holdings');
+  const [dashboardTab, setDashboardTab] = useState<'holdings' | 'trading' | 'risk' | 'fundamentals' | 'news' | 'documents' | 'alerts' | 'watchlist'>('holdings');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -668,6 +670,24 @@ export default function DashboardPage() {
               </button>
 
               <button
+                onClick={() => setDashboardTab('documents')}
+                className={`btn ${dashboardTab === 'documents' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
+              >
+                <UploadCloud size={13} />
+                <span>Documents & RAG</span>
+              </button>
+
+              <button
+                onClick={() => setDashboardTab('alerts')}
+                className={`btn ${dashboardTab === 'alerts' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
+              >
+                <Bell size={13} />
+                <span>Signals & Alerts</span>
+              </button>
+
+              <button
                 onClick={() => setDashboardTab('watchlist')}
                 className={`btn ${dashboardTab === 'watchlist' ? 'btn-primary' : 'btn-secondary'}`}
                 style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
@@ -706,6 +726,19 @@ export default function DashboardPage() {
             {dashboardTab === 'news' && (
               <MarketNewsWire
                 activeTicker={selectedTicker}
+                onSelectTicker={(t) => setSelectedTicker(t)}
+                onSendChatQuery={(q) => sendMessage(q)}
+              />
+            )}
+
+            {dashboardTab === 'documents' && (
+              <DocumentAttachmentStudio
+                onSendChatQuery={(q) => sendMessage(q)}
+              />
+            )}
+
+            {dashboardTab === 'alerts' && (
+              <AlertsNotificationManager
                 onSelectTicker={(t) => setSelectedTicker(t)}
                 onSendChatQuery={(q) => sendMessage(q)}
               />

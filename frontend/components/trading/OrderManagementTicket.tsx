@@ -23,7 +23,7 @@ import {
 import { usePortfolioStore } from '@/store/portfolioStore';
 
 export type OrderSide = 'BUY' | 'SELL';
-export type OrderType = 'MARKET' | 'LIMIT' | 'STOP_LOSS' | 'TAKE_PROFIT';
+export type OrderType = 'MARKET' | 'LIMIT' | 'STOP_LOSS' | 'TRAILING_STOP' | 'SCALE_OUT';
 
 export interface ExecutedOrder {
   id: string;
@@ -58,7 +58,7 @@ export function OrderManagementTicket({
   const [orderType, setOrderType] = useState<OrderType>('MARKET');
   const [sharesInput, setSharesInput] = useState<string>('10');
   const [limitPriceInput, setLimitPriceInput] = useState<string>('');
-  const [stopPriceInput, setStopPriceInput] = useState<string>('');
+  const [trailingPctInput, setTrailingPctInput] = useState<string>('2.5');
   const [orderSuccessMsg, setOrderSuccessMsg] = useState<string | null>(null);
 
   // Initial demo execution blotter
@@ -313,8 +313,8 @@ export function OrderManagementTicket({
           {/* Order Type Selector */}
           <div>
             <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>Order Type</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 4 }}>
-              {(['MARKET', 'LIMIT', 'STOP_LOSS', 'TAKE_PROFIT'] as OrderType[]).map((t) => (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 5, marginTop: 4 }}>
+              {(['MARKET', 'LIMIT', 'STOP_LOSS', 'TRAILING_STOP', 'SCALE_OUT'] as OrderType[]).map((t) => (
                 <button
                   type="button"
                   key={t}
@@ -325,12 +325,12 @@ export function OrderManagementTicket({
                     border: `1px solid ${orderType === t ? 'rgba(59, 130, 246, 0.4)' : 'rgba(255, 255, 255, 0.06)'}`,
                     borderRadius: 'var(--radius-sm)',
                     padding: '5px 0',
-                    fontSize: '0.68rem',
+                    fontSize: '0.65rem',
                     fontWeight: orderType === t ? 700 : 500,
                     cursor: 'pointer',
                   }}
                 >
-                  {t === 'MARKET' ? 'Market' : t === 'LIMIT' ? 'Limit' : t === 'STOP_LOSS' ? 'Stop' : 'TP'}
+                  {t === 'MARKET' ? 'Market' : t === 'LIMIT' ? 'Limit' : t === 'STOP_LOSS' ? 'Stop' : t === 'TRAILING_STOP' ? 'Trail' : 'Scale'}
                 </button>
               ))}
             </div>
@@ -372,7 +372,7 @@ export function OrderManagementTicket({
             />
           </div>
 
-          {/* Conditional Limit / Stop Price Inputs */}
+          {/* Conditional Limit / Trailing Stop Inputs */}
           {orderType === 'LIMIT' && (
             <div>
               <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>Limit Price ($)</label>
@@ -385,6 +385,30 @@ export function OrderManagementTicket({
                 className="input"
                 style={{ marginTop: 4, padding: '7px 10px', fontSize: '0.82rem', fontFamily: 'var(--font-mono)' }}
               />
+            </div>
+          )}
+
+          {orderType === 'TRAILING_STOP' && (
+            <div>
+              <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>Trailing Stop Offset (%)</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0.5"
+                max="20"
+                value={trailingPctInput}
+                onChange={(e) => setTrailingPctInput(e.target.value)}
+                className="input"
+                style={{ marginTop: 4, padding: '7px 10px', fontSize: '0.82rem', fontFamily: 'var(--font-mono)' }}
+              />
+            </div>
+          )}
+
+          {orderType === 'SCALE_OUT' && (
+            <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(59, 130, 246, 0.3)', fontSize: '0.7rem', color: 'var(--color-accent-bright)' }}>
+              <strong>Multi-Target Scale:</strong> 50% shares sold at +3.0% ($
+              {(currentPrice * 1.03).toFixed(2)}), 50% shares sold at +6.0% ($
+              {(currentPrice * 1.06).toFixed(2)}).
             </div>
           )}
 
@@ -411,6 +435,12 @@ export function OrderManagementTicket({
               <span>Broker Commission:</span>
               <span style={{ color: 'var(--color-success)', fontFamily: 'var(--font-mono)' }}>$0.00 (Paper Trading)</span>
             </div>
+            {estimatedTotal > capital * 0.25 && side === 'BUY' && (
+              <div style={{ color: 'var(--color-warning)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                <ShieldAlert size={13} />
+                <span>Notice: Trade exceeds 25% single-asset portfolio concentration limit.</span>
+              </div>
+            )}
             {!hasSufficientCash && side === 'BUY' && (
               <div style={{ color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
                 <ShieldAlert size={13} />

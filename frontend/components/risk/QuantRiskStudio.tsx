@@ -25,9 +25,16 @@ export function QuantRiskStudio() {
   const capital = usePortfolioStore((s) => s.capital) || 100000;
   const metrics = usePortfolioStore((s) => s.metrics);
 
-  const [activeTab, setActiveTab] = useState<'monteCarlo' | 'crisisStress' | 'correlation'>('monteCarlo');
+  const [activeTab, setActiveTab] = useState<'monteCarlo' | 'crisisStress' | 'correlation' | 'blackLitterman'>('monteCarlo');
   const [mcSimulating, setMcSimulating] = useState(false);
   const [mcSeed, setMcSeed] = useState(1);
+
+  // Black-Litterman State
+  const [blViews, setBlViews] = useState([
+    { asset: 'NVDA', expectedExcess: 8.0, confidence: 85 },
+    { asset: 'AAPL', expectedExcess: 3.5, confidence: 75 },
+    { asset: 'MSFT', expectedExcess: 2.0, confidence: 60 },
+  ]);
 
   // Monte Carlo 1-Year (252 Days) Stochastic Forecast Engine
   const monteCarloResults = useMemo(() => {
@@ -243,6 +250,26 @@ export function QuantRiskStudio() {
             <Layers size={13} />
             <span>Correlation Heatmap</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('blackLitterman')}
+            style={{
+              background: activeTab === 'blackLitterman' ? 'var(--color-accent-primary)' : 'transparent',
+              color: activeTab === 'blackLitterman' ? '#ffffff' : 'var(--color-text-secondary)',
+              border: 'none',
+              borderRadius: 'var(--radius-sm)',
+              padding: '5px 12px',
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <Sparkles size={13} />
+            <span>Black-Litterman Bayesian</span>
+          </button>
         </div>
       </div>
 
@@ -434,6 +461,123 @@ export function QuantRiskStudio() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {/* TAB 4: BLACK-LITTERMAN BAYESIAN OPTIMIZATION */}
+      {activeTab === 'blackLitterman' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 20, alignItems: 'start' }}>
+          {/* Configured Investor Views */}
+          <div
+            style={{
+              background: 'rgba(15, 23, 42, 0.7)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--color-border)',
+              padding: '16px 18px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                Active Market Views ($Q$ Vector & $\Omega$ Uncertainty)
+              </span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--color-accent-bright)' }}>Bayesian Prior $\Pi$</span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {blViews.map((v, i) => (
+                <div
+                  key={v.asset}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    padding: '10px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ color: '#fff', fontSize: '0.78rem' }}>${v.asset} View #{i + 1}</strong>
+                    <span style={{ fontSize: '0.68rem', color: 'var(--color-success)', fontWeight: 600 }}>
+                      +{v.expectedExcess}% Excess Return
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>
+                    <span>Investor Confidence:</span>
+                    <span style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>{v.confidence}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Posterior Optimal Weights Comparison Table */}
+          <div
+            style={{
+              background: 'rgba(15, 23, 42, 0.7)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--color-border)',
+              padding: '16px 18px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                Equilibrium $\Pi$ vs Posterior Weights $w^*$ ($100k NAV)
+              </span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--color-success)', fontWeight: 600 }}>Sharpe Uplift: +0.28</span>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', fontFamily: 'var(--font-mono)' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', color: 'var(--color-text-muted)', textAlign: 'left' }}>
+                    <th style={{ padding: '6px' }}>Asset</th>
+                    <th style={{ padding: '6px' }}>Market Cap Prior</th>
+                    <th style={{ padding: '6px', color: 'var(--color-accent-bright)' }}>BL Posterior $w^*$</th>
+                    <th style={{ padding: '6px', textAlign: 'right' }}>Active Tilt</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
+                    <td style={{ padding: '6px', fontWeight: 700, color: '#fff' }}>NVDA</td>
+                    <td style={{ padding: '6px', color: 'var(--color-text-secondary)' }}>17.4% ($17.4k)</td>
+                    <td style={{ padding: '6px', color: '#10b981', fontWeight: 700 }}>24.8% ($24.8k)</td>
+                    <td style={{ padding: '6px', color: '#10b981', textAlign: 'right' }}>+7.4%</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
+                    <td style={{ padding: '6px', fontWeight: 700, color: '#fff' }}>AAPL</td>
+                    <td style={{ padding: '6px', color: 'var(--color-text-secondary)' }}>24.2% ($24.2k)</td>
+                    <td style={{ padding: '6px', color: '#38bdf8', fontWeight: 700 }}>26.0% ($26.0k)</td>
+                    <td style={{ padding: '6px', color: '#38bdf8', textAlign: 'right' }}>+1.8%</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
+                    <td style={{ padding: '6px', fontWeight: 700, color: '#fff' }}>MSFT</td>
+                    <td style={{ padding: '6px', color: 'var(--color-text-secondary)' }}>20.0% ($20.0k)</td>
+                    <td style={{ padding: '6px', color: '#fff', fontWeight: 700 }}>21.5% ($21.5k)</td>
+                    <td style={{ padding: '6px', color: '#38bdf8', textAlign: 'right' }}>+1.5%</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
+                    <td style={{ padding: '6px', fontWeight: 700, color: '#fff' }}>GOOGL</td>
+                    <td style={{ padding: '6px', color: 'var(--color-text-secondary)' }}>12.1% ($12.1k)</td>
+                    <td style={{ padding: '6px', color: '#f59e0b', fontWeight: 700 }}>10.2% ($10.2k)</td>
+                    <td style={{ padding: '6px', color: '#ef4444', textAlign: 'right' }}>-1.9%</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '6px', fontWeight: 700, color: '#fff' }}>Cash / Buffer</td>
+                    <td style={{ padding: '6px', color: 'var(--color-text-secondary)' }}>26.3% ($26.3k)</td>
+                    <td style={{ padding: '6px', color: '#94a3b8', fontWeight: 700 }}>17.5% ($17.5k)</td>
+                    <td style={{ padding: '6px', color: '#ef4444', textAlign: 'right' }}>-8.8%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
     </div>

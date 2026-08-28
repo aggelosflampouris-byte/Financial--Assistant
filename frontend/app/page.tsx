@@ -9,10 +9,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   TrendingUp, TrendingDown, Shield, Zap, Activity,
   BarChart3, MessageSquare, RefreshCw, AlertCircle, Wallet, DollarSign,
-  PieChart, Sliders
+  PieChart, Sliders, Send, Building2, Newspaper, Layers
 } from 'lucide-react';
 import { TradingViewChart } from '@/components/charts/TradingViewChart';
 import { PortfolioAllocationView } from '@/components/portfolio/PortfolioAllocationView';
+import { OrderManagementTicket } from '@/components/trading/OrderManagementTicket';
+import { QuantRiskStudio } from '@/components/risk/QuantRiskStudio';
+import { FundamentalsStudio } from '@/components/fundamentals/FundamentalsStudio';
+import { MarketNewsWire } from '@/components/news/MarketNewsWire';
 import { HITLConfirmationModal } from '@/components/advisor/HITLConfirmationModal';
 import { usePortfolioStore } from '@/store/portfolioStore';
 
@@ -215,7 +219,7 @@ const API_BASE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_
 export default function DashboardPage() {
   // --- State ---
   const [selectedTicker, setSelectedTicker] = useState('AAPL');
-  const [dashboardTab, setDashboardTab] = useState<'holdings' | 'watchlist'>('holdings');
+  const [dashboardTab, setDashboardTab] = useState<'holdings' | 'trading' | 'risk' | 'fundamentals' | 'news' | 'watchlist'>('holdings');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -626,32 +630,98 @@ export default function DashboardPage() {
               />
             </div>
 
-            {/* === LOWER DASHBOARD SUITE: TABS FOR $100K PORTFOLIO ALLOCATION & WATCHLIST === */}
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: -6 }}>
+            {/* === LOWER DASHBOARD SUITE: INSTITUTIONAL VIEW SELECTOR TABS === */}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: -4 }}>
               <button
                 onClick={() => setDashboardTab('holdings')}
                 className={`btn ${dashboardTab === 'holdings' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.78rem', padding: '6px 14px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 6 }}
+                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
               >
-                <PieChart size={14} />
-                <span>$100,000 Portfolio Allocation & Rebalancer</span>
+                <PieChart size={13} />
+                <span>$100k Portfolio & What-If</span>
               </button>
+
+              <button
+                onClick={() => setDashboardTab('trading')}
+                className={`btn ${dashboardTab === 'trading' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
+              >
+                <Send size={13} />
+                <span>Trade Ticket & OMS</span>
+              </button>
+
+              <button
+                onClick={() => setDashboardTab('risk')}
+                className={`btn ${dashboardTab === 'risk' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
+              >
+                <Activity size={13} />
+                <span>Quant Risk & Stress Studio</span>
+              </button>
+
+              <button
+                onClick={() => setDashboardTab('fundamentals')}
+                className={`btn ${dashboardTab === 'fundamentals' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
+              >
+                <Building2 size={13} />
+                <span>Fundamentals & 10-K</span>
+              </button>
+
+              <button
+                onClick={() => setDashboardTab('news')}
+                className={`btn ${dashboardTab === 'news' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
+              >
+                <Newspaper size={13} />
+                <span>News & AI Sentiment</span>
+              </button>
+
               <button
                 onClick={() => setDashboardTab('watchlist')}
                 className={`btn ${dashboardTab === 'watchlist' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.78rem', padding: '6px 14px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 6 }}
+                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
               >
-                <Activity size={14} />
-                <span>Market Watchlist & Analytics</span>
+                <Layers size={13} />
+                <span>Market Watchlist</span>
               </button>
             </div>
 
-            {dashboardTab === 'holdings' ? (
+            {dashboardTab === 'holdings' && (
               <PortfolioAllocationView
                 onSelectTicker={(t) => setSelectedTicker(t)}
                 onSendChatQuery={(q) => sendMessage(q)}
               />
-            ) : (
+            )}
+
+            {dashboardTab === 'trading' && (
+              <OrderManagementTicket
+                activeTicker={selectedTicker}
+                onSelectTicker={(t) => setSelectedTicker(t)}
+                onSendChatQuery={(q) => sendMessage(q)}
+              />
+            )}
+
+            {dashboardTab === 'risk' && (
+              <QuantRiskStudio />
+            )}
+
+            {dashboardTab === 'fundamentals' && (
+              <FundamentalsStudio
+                ticker={selectedTicker}
+                onSendChatQuery={(q) => sendMessage(q)}
+              />
+            )}
+
+            {dashboardTab === 'news' && (
+              <MarketNewsWire
+                activeTicker={selectedTicker}
+                onSelectTicker={(t) => setSelectedTicker(t)}
+                onSendChatQuery={(q) => sendMessage(q)}
+              />
+            )}
+
+            {dashboardTab === 'watchlist' && (
               /* Comprehensive Market Watchlist & Technical Overview Table */
               <div className="card" style={{ padding: '16px 20px', overflowX: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>

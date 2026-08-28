@@ -1185,25 +1185,16 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
           </div>
         </div>
 
-        {/* Right: Quick Indicator Overlay Toggles & Action Controls */}
+        {/* Right: Quick Essential Toggles & Drawer Action */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {/* Quick 1-Click Indicator Pills */}
+          {/* Quick Essential Indicators */}
           <button
             className={`indicator-pill ${indicators.sma ? 'active' : ''}`}
             onClick={() => setIndicators((prev) => ({ ...prev, sma: !prev.sma }))}
-            title="Toggle Simple Moving Averages (SMA 20 Cyan & SMA 50 Amber)"
+            title="Toggle Simple Moving Averages (SMA 20 & 50)"
           >
             <span className="indicator-dot" style={{ background: '#00d2ff' }} />
-            <span>SMA ({params.smaFast}/{params.smaSlow})</span>
-          </button>
-
-          <button
-            className={`indicator-pill ${indicators.ema ? 'active' : ''}`}
-            onClick={() => setIndicators((prev) => ({ ...prev, ema: !prev.ema }))}
-            title="Toggle Exponential Moving Averages (EMA 9 Pink & EMA 21 Green)"
-          >
-            <span className="indicator-dot" style={{ background: '#e879f9' }} />
-            <span>EMA ({params.emaFast}/{params.emaSlow})</span>
+            <span>SMA</span>
           </button>
 
           <button
@@ -1218,96 +1209,57 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
           <button
             className={`indicator-pill ${indicators.pivots ? 'active' : ''}`}
             onClick={() => setIndicators((prev) => ({ ...prev, pivots: !prev.pivots }))}
-            title="Toggle Classical Pivot Lines (S1, R1, Pivot, S2, R2)"
+            title="Toggle Classical Pivot S/R Lines"
           >
             <span className="indicator-dot" style={{ background: '#ef4444' }} />
-            <span>Pivots S/R</span>
+            <span>Pivots</span>
           </button>
 
+          {/* Sub-Panel Toggle */}
           <button
-            className={`indicator-pill ${indicators.fibonacci ? 'active' : ''}`}
-            onClick={() => setIndicators((prev) => ({ ...prev, fibonacci: !prev.fibonacci }))}
-            title="Toggle Fibonacci Retracement Levels"
+            className={`indicator-pill ${oscillatorView !== 'none' ? 'active' : ''}`}
+            onClick={() => setOscillatorView((prev) => (prev === 'none' ? 'rsi' : prev === 'rsi' ? 'macd' : 'none'))}
+            title="Cycle Sub-Panel (RSI / MACD / Off)"
           >
-            <span className="indicator-dot" style={{ background: '#eab308' }} />
-            <span>Fibonacci</span>
+            <span className="indicator-dot" style={{ background: '#c084fc' }} />
+            <span>{oscillatorView === 'none' ? 'Sub-Chart' : oscillatorView.toUpperCase()}</span>
           </button>
-
-          <button
-            className={`indicator-pill ${indicators.patterns ? 'active' : ''}`}
-            onClick={() => setIndicators((prev) => ({ ...prev, patterns: !prev.patterns }))}
-            title="Toggle Golden/Death Cross Pattern Markers"
-          >
-            <span className="indicator-dot" style={{ background: '#10b981' }} />
-            <span>Patterns</span>
-          </button>
-
-          {/* Oscillators Sub-Panel Toggle */}
-          <div
-            style={{
-              display: 'flex',
-              background: 'rgba(255, 255, 255, 0.04)',
-              borderRadius: 'var(--radius-full)',
-              padding: 2,
-              border: '1px solid rgba(99, 131, 195, 0.2)',
-            }}
-          >
-            {(['none', 'rsi', 'macd', 'both'] as OscillatorView[]).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setOscillatorView(mode)}
-                style={{
-                  background: oscillatorView === mode ? 'rgba(168, 85, 247, 0.3)' : 'transparent',
-                  color: oscillatorView === mode ? '#c084fc' : 'var(--color-text-muted)',
-                  border: 'none',
-                  borderRadius: 'var(--radius-full)',
-                  padding: '2px 7px',
-                  fontSize: '0.68rem',
-                  fontWeight: oscillatorView === mode ? 700 : 500,
-                  cursor: 'pointer',
-                  textTransform: 'uppercase',
-                }}
-              >
-                {mode === 'none' ? 'Sub: Off' : mode}
-              </button>
-            ))}
-          </div>
 
           {/* Action Buttons */}
           <button
             onClick={resetZoom}
             className="btn btn-secondary"
-            style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: 'var(--radius-sm)' }}
+            style={{ padding: '3px 7px', fontSize: '0.72rem', borderRadius: 'var(--radius-sm)' }}
             title="Reset Zoom / Fit View"
           >
-            <RotateCcw size={13} />
+            <RotateCcw size={12} />
           </button>
 
           <button
             onClick={takeSnapshot}
             className="btn btn-secondary"
-            style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: 'var(--radius-sm)' }}
-            title="Export High-Res PNG Chart"
+            style={{ padding: '3px 7px', fontSize: '0.72rem', borderRadius: 'var(--radius-sm)' }}
+            title="Export High-Res PNG"
           >
-            <Camera size={13} />
+            <Camera size={12} />
           </button>
 
           <button
             onClick={() => setDrawerOpen(true)}
             className={`btn btn-secondary ${drawerOpen ? 'btn-active' : ''}`}
             style={{
-              padding: '4px 10px',
-              fontSize: '0.75rem',
+              padding: '3px 8px',
+              fontSize: '0.72rem',
               borderRadius: 'var(--radius-sm)',
               display: 'flex',
               alignItems: 'center',
-              gap: 5,
+              gap: 4,
               background: drawerOpen ? 'var(--color-accent-primary)' : 'rgba(255,255,255,0.05)',
               color: drawerOpen ? '#fff' : 'var(--color-text-secondary)',
             }}
-            title="Configure Indicator Parameters & Custom Price Lines"
+            title="Configure All Indicators, Parameters & Custom Price Lines"
           >
-            <SlidersHorizontal size={13} />
+            <SlidersHorizontal size={12} />
             <span>Settings</span>
           </button>
 
@@ -1315,9 +1267,9 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
             className={`live-indicator ${isConnected ? 'pulsing' : ''}`}
             style={{
               color: isConnected ? 'var(--color-success)' : 'var(--color-text-muted)',
-              fontSize: '0.72rem',
+              fontSize: '0.7rem',
               fontWeight: 600,
-              marginLeft: 4,
+              marginLeft: 2,
             }}
           >
             {isConnected ? 'LIVE' : 'SYNCING'}

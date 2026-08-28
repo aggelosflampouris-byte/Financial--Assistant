@@ -702,128 +702,131 @@ export default function DashboardPage() {
               />
             </section>
 
-            {/* Workspace Studio Navigation Tabs */}
-            <div
-              role="tablist"
-              aria-label="Institutional Analysis Modules"
-              className="tab-nav-bar"
-            >
-              {[
-                { id: 'holdings', label: '$100k Portfolio', icon: PieChart },
-                { id: 'trading', label: 'Trade OMS', icon: Send },
-                { id: 'risk', label: 'Quant Risk Studio', icon: Activity },
-                { id: 'fundamentals', label: 'Fundamentals (10-K)', icon: Building2 },
-                { id: 'news', label: 'News & Sentiment', icon: Newspaper },
-                { id: 'documents', label: 'Documents & RAG', icon: UploadCloud },
-              ].map((tab) => {
-                const Icon = tab.icon;
-                const isActive = dashboardTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    role="tab"
-                    id={`tab-${tab.id}`}
-                    aria-selected={isActive}
-                    aria-controls={`tabpanel-${tab.id}`}
-                    onClick={() => setDashboardTab(tab.id as typeof dashboardTab)}
-                    className={`btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{
-                      fontSize: '0.74rem',
-                      padding: '6px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 5,
-                    }}
-                  >
-                    <Icon size={13} />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+            {/* Workspace Studio Container */}
+            <div className="workspace-card">
+              {/* Tab Selector Header */}
+              <div
+                role="tablist"
+                aria-label="Institutional Analysis Modules"
+                className="tab-nav-bar"
+              >
+                {[
+                  { id: 'holdings', label: '$100k Portfolio', icon: PieChart },
+                  { id: 'trading', label: 'Trade OMS', icon: Send },
+                  { id: 'risk', label: 'Quant Risk Studio', icon: Activity },
+                  { id: 'fundamentals', label: 'Fundamentals (10-K)', icon: Building2 },
+                  { id: 'news', label: 'News & Sentiment', icon: Newspaper },
+                  { id: 'documents', label: 'Documents & RAG', icon: UploadCloud },
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = dashboardTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      role="tab"
+                      id={`tab-${tab.id}`}
+                      aria-selected={isActive}
+                      aria-controls={`tabpanel-${tab.id}`}
+                      onClick={() => setDashboardTab(tab.id as typeof dashboardTab)}
+                      className={`btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{
+                        fontSize: '0.72rem',
+                        padding: '5px 11px',
+                        borderRadius: 'var(--radius-sm)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 5,
+                      }}
+                    >
+                      <Icon size={13} />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
 
-            {/* Active Studio Content Panel */}
-            <div role="tabpanel" id={`tabpanel-${dashboardTab}`} aria-labelledby={`tab-${dashboardTab}`}>
-              {dashboardTab === 'holdings' && (
-                <PortfolioAllocationView
-                  onSelectTicker={(t) => setSelectedTicker(t)}
-                  onSendChatQuery={(q) => sendMessage(q)}
-                />
-              )}
+              {/* Active Studio Content Panel */}
+              <div
+                role="tabpanel"
+                id={`tabpanel-${dashboardTab}`}
+                aria-labelledby={`tab-${dashboardTab}`}
+                className="workspace-body"
+              >
+                {dashboardTab === 'holdings' && (
+                  <PortfolioAllocationView
+                    onSelectTicker={(t) => setSelectedTicker(t)}
+                    onSendChatQuery={(q) => sendMessage(q)}
+                  />
+                )}
 
-              {dashboardTab === 'trading' && (
-                <OrderManagementTicket
-                  activeTicker={selectedTicker}
-                  onSelectTicker={(t) => setSelectedTicker(t)}
-                  onSendChatQuery={(q) => sendMessage(q)}
-                />
-              )}
+                {dashboardTab === 'trading' && (
+                  <OrderManagementTicket
+                    activeTicker={selectedTicker}
+                    onSelectTicker={(t) => setSelectedTicker(t)}
+                    onSendChatQuery={(q) => sendMessage(q)}
+                  />
+                )}
 
-              {dashboardTab === 'risk' && (
-                <QuantRiskStudio />
-              )}
+                {dashboardTab === 'risk' && (
+                  <QuantRiskStudio />
+                )}
 
-              {dashboardTab === 'fundamentals' && (
-                <FundamentalsStudio
-                  ticker={selectedTicker}
-                  onSendChatQuery={(q) => sendMessage(q)}
-                />
-              )}
+                {dashboardTab === 'fundamentals' && (
+                  <FundamentalsStudio
+                    ticker={selectedTicker}
+                    onSendChatQuery={(q) => sendMessage(q)}
+                  />
+                )}
 
-              {dashboardTab === 'news' && (
-                <MarketNewsWire
-                  activeTicker={selectedTicker}
-                  onSelectTicker={(t) => setSelectedTicker(t)}
-                  onSendChatQuery={(q) => sendMessage(q)}
-                />
-              )}
+                {dashboardTab === 'news' && (
+                  <MarketNewsWire
+                    activeTicker={selectedTicker}
+                    onSelectTicker={(t) => setSelectedTicker(t)}
+                    onSendChatQuery={(q) => sendMessage(q)}
+                  />
+                )}
 
-              {dashboardTab === 'documents' && (
-                <DocumentAttachmentStudio
-                  onSendChatQuery={(q) => sendMessage(q)}
-                />
-              )}
+                {dashboardTab === 'documents' && (
+                  <DocumentAttachmentStudio
+                    onSendChatQuery={(q) => sendMessage(q)}
+                  />
+                )}
 
-              {dashboardTab === 'alerts' && (
-                <AlertsNotificationManager
-                  onSelectTicker={(t) => setSelectedTicker(t)}
-                  onSendChatQuery={(q) => sendMessage(q)}
-                />
-              )}
+                {dashboardTab === 'alerts' && (
+                  <AlertsNotificationManager
+                    onSelectTicker={(t) => setSelectedTicker(t)}
+                    onSendChatQuery={(q) => sendMessage(q)}
+                  />
+                )}
+              </div>
             </div>
           </div>
 
-          {/* === RIGHT COLUMN — AI RESEARCH ADVISOR CHAT === */}
+          {/* === RIGHT COLUMN — STICKY AI RESEARCH ADVISOR TERMINAL === */}
           <div
             role="complementary"
             aria-label="AI Quantitative Research Advisor"
-            className="card chat-panel"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              height: 780,
-              overflow: 'hidden',
-            }}
+            className="chat-sticky-container"
           >
             {/* Chat header */}
             <div style={{
-              padding: '12px 18px',
+              padding: '12px 16px',
               borderBottom: '1px solid var(--color-border)',
               display: 'flex', alignItems: 'center', gap: 10,
               flexWrap: 'wrap',
+              background: 'rgba(13, 18, 32, 0.7)',
             }}>
               <div style={{
-                width: 34, height: 34,
+                width: 32, height: 32,
                 background: 'var(--color-accent-gradient)',
                 borderRadius: 'var(--radius-md)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <MessageSquare size={17} color="white" />
+                <MessageSquare size={16} color="white" />
               </div>
               <div>
-                <p style={{ fontWeight: 600, fontSize: '0.85rem' }}>AI Research Advisor</p>
-                <p style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>
+                <p style={{ fontWeight: 600, fontSize: '0.82rem', margin: 0 }}>AI Research Advisor</p>
+                <p style={{ fontSize: '0.66rem', color: 'var(--color-text-muted)', margin: 0 }}>
                   LangGraph Quant & Technical Engine
                 </p>
               </div>
@@ -873,11 +876,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Messages */}
-            <div style={{
-              flex: 1, overflowY: 'auto',
-              padding: '16px 20px',
-              display: 'flex', flexDirection: 'column', gap: 12,
-            }}>
+            <div className="chat-scroll-area">
               {messages.length === 0 && (
                 <div style={{ textAlign: 'center', marginTop: 24, padding: '0 8px' }}>
                   <Zap size={28} color="var(--color-accent-bright)" style={{ margin: '0 auto 10px' }} />

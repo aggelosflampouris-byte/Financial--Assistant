@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   TrendingUp, TrendingDown, Shield, Zap, Activity,
   BarChart3, MessageSquare, RefreshCw, AlertCircle, Wallet, DollarSign,
-  PieChart, Sliders, Send, Building2, Newspaper, Layers, UploadCloud, Bell
+  PieChart, Sliders, Send, Building2, Newspaper, Layers, UploadCloud, Bell, FileText
 } from 'lucide-react';
 import { TradingViewChart } from '@/components/charts/TradingViewChart';
 import { PortfolioAllocationView } from '@/components/portfolio/PortfolioAllocationView';
@@ -19,6 +19,7 @@ import { FundamentalsStudio } from '@/components/fundamentals/FundamentalsStudio
 import { MarketNewsWire } from '@/components/news/MarketNewsWire';
 import { DocumentAttachmentStudio } from '@/components/documents/DocumentAttachmentStudio';
 import { AlertsNotificationManager } from '@/components/alerts/AlertsNotificationManager';
+import { ResearchReportCard, ResearchReportData } from '@/components/advisor/ResearchReportCard';
 import { HITLConfirmationModal } from '@/components/advisor/HITLConfirmationModal';
 import { usePortfolioStore } from '@/store/portfolioStore';
 import { DEFAULT_TICKERS, ASSET_NAMES, API_BASE } from '@/constants/market';
@@ -35,6 +36,7 @@ interface ChatMessage {
   complianceDisclaimer?: string;
   requiresConfirmation?: boolean;
   pendingActionId?: string;
+  reportData?: ResearchReportData;
 }
 
 // ---------------------------------------------------------------------------
@@ -364,6 +366,7 @@ export default function DashboardPage() {
         complianceDisclaimer: data.compliance?.disclaimer_text,
         requiresConfirmation: data.requires_human_confirmation,
         pendingActionId: data.pending_action_id,
+        reportData: data.tool_data?.report_data,
       };
       setMessages((prev) => [...prev, assistantMsg]);
 
@@ -868,25 +871,47 @@ export default function DashboardPage() {
           }}>
             {/* Chat header */}
             <div style={{
-              padding: '16px 20px',
+              padding: '12px 18px',
               borderBottom: '1px solid var(--color-border)',
               display: 'flex', alignItems: 'center', gap: 10,
+              flexWrap: 'wrap',
             }}>
               <div style={{
-                width: 36, height: 36,
+                width: 34, height: 34,
                 background: 'var(--color-accent-gradient)',
                 borderRadius: 'var(--radius-md)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <MessageSquare size={18} color="white" />
+                <MessageSquare size={17} color="white" />
               </div>
               <div>
-                <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>AI Advisor</p>
-                <p style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
-                  Powered by Qwen-2.5-72B · LangGraph
+                <p style={{ fontWeight: 600, fontSize: '0.85rem' }}>AI Research Advisor</p>
+                <p style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>
+                  LangGraph Quant & Technical Engine
                 </p>
               </div>
-              <span className="badge badge-success" style={{ marginLeft: 'auto' }}>Online</span>
+
+              {/* 1-Click Research Report Button in Header */}
+              <button
+                onClick={() => sendMessage(`Generate institutional research report and technical teardown paper for ${selectedTicker}`)}
+                className="btn btn-secondary"
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '0.72rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  marginLeft: 'auto',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(59, 130, 246, 0.12)',
+                  borderColor: 'rgba(59, 130, 246, 0.3)',
+                  color: 'var(--color-accent-bright)',
+                }}
+                title={`Generate downloadable research report paper for ${selectedTicker}`}
+              >
+                <FileText size={13} />
+                <span>Report Paper (${selectedTicker})</span>
+              </button>
             </div>
 
             {/* Messages */}
@@ -912,10 +937,10 @@ export default function DashboardPage() {
                     textAlign: 'left',
                   }}>
                     {[
+                      { icon: '📄', label: `Generate Institutional Report Paper (${selectedTicker})`, query: `Generate institutional research report and technical teardown paper for ${selectedTicker}` },
                       { icon: '📈', label: `Analyze active chart (${selectedTicker})`, query: `Analyze technical indicators, momentum, and statistical levels for ${selectedTicker}` },
                       { icon: '🏆', label: 'Rank all watchlist assets by technical momentum', query: 'Compare all charts and rank watchlist assets by technical momentum and signals' },
                       { icon: '🎯', label: 'Calculate support, resistance & volatility on active chart', query: `Show statistical support, resistance, RSI and Bollinger Bands on this chart` },
-                      { icon: '📊', label: 'Show portfolio Sharpe ratio & risk metrics', query: 'Show me my portfolio Sharpe ratio and risk metrics' },
                     ].map((item, idx) => (
                       <button
                         key={idx}
@@ -958,6 +983,9 @@ export default function DashboardPage() {
                 <div key={msg.id} style={{ display: 'flex', flexDirection: 'column' }}>
                   <div className={msg.role === 'user' ? 'message-user' : 'message-assistant'}>
                     <FormattedChatMessage content={msg.content} />
+                    {msg.reportData && (
+                      <ResearchReportCard report={msg.reportData} />
+                    )}
                     {msg.requiresConfirmation && (
                       <div style={{
                         marginTop: 10,

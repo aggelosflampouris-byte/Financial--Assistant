@@ -318,32 +318,218 @@ export default function DashboardPage() {
 
       <main id="main-content" className="dashboard-main" tabIndex={-1}>
         <div className="dashboard-layout-3col">
+          {/* ========================================================= */}
+          {/* COLUMN 1: LEFT SIDEBAR (PORTFOLIO & WATCHLIST)           */}
+          {/* ========================================================= */}
           <aside aria-label="Assets and Watchlist Navigator" className="sidebar-sticky-container">
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Layers size={15} color="var(--color-accent-bright)" /> <span style={{ fontSize: '0.82rem', fontWeight: 700 }}>Assets</span></div>
-              <button onClick={() => setShowAddTicker(!showAddTicker)} className="btn btn-secondary" style={{ padding: '3px 8px', fontSize: '0.7rem' }}>{showAddTicker ? <X size={12}/> : <Plus size={12}/>}</button>
+            {/* Sidebar Header */}
+            <div style={{
+              padding: '12px 14px',
+              borderBottom: '1px solid var(--color-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'rgba(13, 18, 32, 0.7)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Layers size={15} color="var(--color-accent-bright)" />
+                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff' }}>
+                  Market Assets
+                </span>
+              </div>
+              <button
+                onClick={() => setShowAddTicker(!showAddTicker)}
+                className="btn btn-secondary"
+                style={{
+                  padding: '3px 8px',
+                  fontSize: '0.7rem',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  background: showAddTicker ? 'var(--color-accent-primary)' : 'rgba(255, 255, 255, 0.05)',
+                  color: showAddTicker ? '#ffffff' : 'var(--color-accent-bright)',
+                  borderColor: 'rgba(59, 130, 246, 0.3)',
+                }}
+                title="Add stock ticker to watchlist"
+              >
+                {showAddTicker ? <X size={12} /> : <Plus size={12} />}
+                <span>{showAddTicker ? 'Close' : 'Add'}</span>
+              </button>
             </div>
+
+            {/* Expandable Add Ticker Form */}
             {showAddTicker && (
-              <div style={{ padding: 10, background: 'rgba(59, 130, 246, 0.05)', display: 'flex', gap: 6 }}>
-                <input className="input" value={newTickerInput} onChange={(e) => setNewTickerInput(e.target.value)} autoFocus style={{ padding: '4px 8px', fontSize: '0.75rem', width: '100%' }} />
-                <button onClick={() => handleAddTicker()} className="btn btn-primary" style={{ padding: '3px 8px', fontSize: '0.7rem' }}>Add</button>
+              <div style={{
+                padding: '10px 12px',
+                background: 'rgba(59, 130, 246, 0.08)',
+                borderBottom: '1px solid rgba(59, 130, 246, 0.25)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    className="input"
+                    placeholder="e.g. TSLA, AMD..."
+                    value={newTickerInput}
+                    onChange={(e) => setNewTickerInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddTicker(); }}
+                    autoFocus
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '0.75rem',
+                      height: 28,
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  />
+                  <button
+                    onClick={() => handleAddTicker()}
+                    className="btn btn-primary"
+                    style={{ padding: '3px 10px', fontSize: '0.72rem', height: 28 }}
+                  >
+                    Add
+                  </button>
+                </div>
+                {/* Quick Add Chips */}
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {['TSLA', 'AMD', 'AMZN', 'META', 'COIN', 'NFLX', 'PLTR', 'DIS'].map((preset) => (
+                    <button
+                      key={preset}
+                      onClick={() => handleAddTicker(preset)}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: 4,
+                        padding: '1px 5px',
+                        fontSize: '0.65rem',
+                        color: 'var(--color-text-secondary)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      +{preset}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
+
+            {/* Sidebar Scrollable Body */}
             <div className="sidebar-scroll-area">
-              <div className="sidebar-section-header"><span>Portfolio</span></div>
-              {PORTFOLIO_ASSETS.map((p) => (
-                <button key={p.ticker} onClick={() => setSelectedTicker(p.ticker)} className={`ticker-item-card ${selectedTicker === p.ticker ? 'active' : ''}`}>
-                  <div><strong>{p.ticker}</strong><br/><span style={{ fontSize: '0.65rem' }}>{p.name}</span></div>
-                  <div>${ticks[p.ticker]?.price.toFixed(2) || '—'}</div>
-                </button>
-              ))}
-              <div className="sidebar-section-header" style={{ marginTop: 12 }}><span>Watchlist</span></div>
-              {watchlistTickers.map((t) => (
-                <div key={t} onClick={() => setSelectedTicker(t)} className={`ticker-item-card ${selectedTicker === t ? 'active' : ''}`} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <strong>{t}</strong>
-                  <button onClick={(e) => handleRemoveWatchlist(t, e)} style={{ background: 'none', border: 'none', color: '#666' }}><X size={12}/></button>
+              {/* Section 1: Portfolio Holdings ($100k) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div className="sidebar-section-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Briefcase size={12} color="var(--color-success)" />
+                    <span style={{ color: 'var(--color-text-secondary)' }}>Portfolio Holdings</span>
+                  </div>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--color-success)', background: 'rgba(16, 185, 129, 0.12)', padding: '1px 5px', borderRadius: 4, fontWeight: 600 }}>
+                    $100k NAV
+                  </span>
                 </div>
-              ))}
+
+                {PORTFOLIO_ASSETS.map((p) => {
+                  const t = p.ticker;
+                  const tick = ticks[t];
+                  const isPos = (tick?.changePct ?? 0) >= 0;
+                  const isSelected = selectedTicker === t;
+                  return (
+                    <div
+                      key={t}
+                      onClick={() => setSelectedTicker(t)}
+                      className={`ticker-item-card ${isSelected ? 'active' : ''}`}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <strong style={{ fontSize: '0.84rem', color: isSelected ? 'var(--color-accent-bright)' : '#ffffff' }}>
+                            {t}
+                          </strong>
+                          <span style={{ fontSize: '0.62rem', background: 'rgba(255,255,255,0.08)', padding: '1px 4px', borderRadius: 3, color: 'var(--color-text-secondary)' }}>
+                            {p.weight}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.name}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: '#ffffff', fontWeight: 600 }}>
+                          {tick ? `$${tick.price.toFixed(2)}` : '—'}
+                        </span>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: isPos ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                          {tick ? `${isPos ? '+' : ''}${(tick.changePct * 100).toFixed(2)}%` : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Visual Divider */}
+              <div style={{ height: 1, background: 'rgba(255, 255, 255, 0.08)', margin: '4px 0' }} />
+
+              {/* Section 2: Market Watchlist */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div className="sidebar-section-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Eye size={12} color="var(--color-accent-bright)" />
+                    <span style={{ color: 'var(--color-text-secondary)' }}>Market Watchlist</span>
+                  </div>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--color-text-muted)' }}>
+                    {watchlistTickers.length} Tracked
+                  </span>
+                </div>
+
+                {watchlistTickers.map((t) => {
+                  const tick = ticks[t];
+                  const isPos = (tick?.changePct ?? 0) >= 0;
+                  const isSelected = selectedTicker === t;
+                  return (
+                    <div
+                      key={t}
+                      onClick={() => setSelectedTicker(t)}
+                      className={`ticker-item-card ${isSelected ? 'active' : ''}`}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                        <strong style={{ fontSize: '0.84rem', color: isSelected ? 'var(--color-accent-bright)' : '#ffffff' }}>
+                          {t}
+                        </strong>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {ASSET_NAMES[t] || t}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: '#ffffff', fontWeight: 600 }}>
+                            {tick ? `$${tick.price.toFixed(2)}` : '—'}
+                          </span>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 600, color: isPos ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                            {tick ? `${isPos ? '+' : ''}${(tick.changePct * 100).toFixed(2)}%` : '—'}
+                          </span>
+                        </div>
+                        <button
+                          onClick={(e) => handleRemoveWatchlist(t, e)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--color-text-muted)',
+                            cursor: 'pointer',
+                            padding: 2,
+                            borderRadius: 3,
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                          title={`Remove ${t} from watchlist`}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </aside>
 

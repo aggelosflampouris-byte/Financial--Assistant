@@ -647,23 +647,51 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   justify-content: space-between;
   padding: 8px 10px;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.02);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
   cursor: pointer;
   transition: all var(--transition-fast);
   text-align: left;
+  box-sizing: border-box;
 }
 
 .ticker-item-card:hover {
   background: rgba(59, 130, 246, 0.08);
   border-color: rgba(59, 130, 246, 0.3);
+  color: #ffffff;
   transform: translateY(-1px);
 }
 
 .ticker-item-card.active {
   background: rgba(59, 130, 246, 0.16);
   border-color: var(--color-accent-primary);
+  color: #ffffff;
   box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
+}
+
+.ticker-item-card strong {
+  color: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ticker-item-card.active strong {
+  color: var(--color-accent-bright);
+}
+
+.ticker-item-card .ticker-name {
+  color: var(--color-text-secondary);
+  font-size: 0.68rem;
+}
+
+.ticker-item-card .ticker-price {
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .sidebar-section-header {

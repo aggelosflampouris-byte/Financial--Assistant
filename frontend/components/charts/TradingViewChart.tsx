@@ -22,6 +22,7 @@ import {
   ColorType,
   LineStyle,
   IPriceLine,
+  ISeriesApi,
   SeriesMarker,
 } from 'lightweight-charts';
 import {
@@ -33,12 +34,25 @@ import {
   Gauge,
   Sparkles,
   X,
-  TrendingUp,
-  TrendingDown,
 } from 'lucide-react';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { usePortfolioStore } from '@/store/portfolioStore';
 import type { MarketTick } from '@/store/portfolioStore';
+import { API_BASE } from '@/constants/market';
+import {
+  calculateSMA,
+  calculateEMA,
+  calculateBollingerBands,
+  calculateRSISeries,
+  calculateMACDSeries,
+  calculateClassicalPivots,
+  calculateFibonacciLevels,
+  normalizeBarTime,
+  formatDisplayTime,
+  OHLCVPoint,
+  ClassicalPivots,
+  FibonacciLevels,
+} from '@/utils/technicalIndicators';
 
 // ---------------------------------------------------------------------------
 // Types & Interfaces
@@ -92,161 +106,6 @@ interface TradingViewChartProps {
 }
 
 // ---------------------------------------------------------------------------
-// Pure Technical Indicator & Statistical Calculations
-// ---------------------------------------------------------------------------
-
-function calculateSMA(data: { time: string | number; close: number }[], period: number) {
-  const result: { time: string | number; value: number }[] = [];
-  if (data.length < period) return result;
-  for (let i = period - 1; i < data.length; i++) {
-    let sum = 0;
-    for (let j = 0; j < period; j++) {
-      sum += data[i - j].close;
-    }
-    result.push({ time: data[i].time, value: +(sum / period).toFixed(2) });
-  }
-  return result;
-}
-
-function calculateEMA(data: { time: string | number; close: number }[], period: number) {
-  const result: { time: string | number; value: number }[] = [];
-  if (data.length < period) return result;
-  const k = 2 / (period + 1);
-  let prevEMA = data.slice(0, period).reduce((acc, val) => acc + val.close, 0) / period;
-  result.push({ time: data[period - 1].time, value: +prevEMA.toFixed(2) });
-  for (let i = period; i < data.length; i++) {
-    prevEMA = data[i].close * k + prevEMA * (1 - k);
-    result.push({ time: data[i].time, value: +prevEMA.toFixed(2) });
-  }
-  return result;
-}
-
-function calculateBollingerBands(
-  data: { time: string | number; close: number }[],
-  period: number = 20,
-  multiplier: number = 2.0
-) {
-  const upper: { time: string | number; value: number }[] = [];
-  const middle: { time: string | number; value: number }[] = [];
-  const lower: { time: string | number; value: number }[] = [];
-
-  if (data.length < period) return { upper, middle, lower };
-
-  for (let i = period - 1; i < data.length; i++) {
-    let sum = 0;
-    for (let j = 0; j < period; j++) {
-      sum += data[i - j].close;
-    }
-    const mean = sum / period;
-    let varSum = 0;
-    for (let j = 0; j < period; j++) {
-      varSum += Math.pow(data[i - j].close - mean, 2);
-    }
-    const stdDev = Math.sqrt(varSum / period);
-    middle.push({ time: data[i].time, value: +mean.toFixed(2) });
-    upper.push({ time: data[i].time, value: +(mean + multiplier * stdDev).toFixed(2) });
-    lower.push({ time: data[i].time, value: +(mean - multiplier * stdDev).toFixed(2) });
-  }
-  return { upper, middle, lower };
-}
-
-function calculateRSISeries(data: { time: string | number; close: number }[], period: number = 14) {
-  const result: { time: string | number; value: number }[] = [];
-  if (data.length < period + 1) return result;
-
-  let gains = 0;
-  let losses = 0;
-  for (let i = 1; i <= period; i++) {
-    const diff = data[i].close - data[i - 1].close;
-    if (diff >= 0) gains += diff;
-    else losses -= diff;
-  }
-  let avgGain = gains / period;
-  let avgLoss = losses / period;
-
-  let rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
-  result.push({ time: data[period].time, value: +(100 - 100 / (1 + rs)).toFixed(1) });
-
-  for (let i = period + 1; i < data.length; i++) {
-    const diff = data[i].close - data[i - 1].close;
-    avgGain = (avgGain * (period - 1) + (diff > 0 ? diff : 0)) / period;
-    avgLoss = (avgLoss * (period - 1) + (diff < 0 ? -diff : 0)) / period;
-    rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
-    result.push({ time: data[i].time, value: +(100 - 100 / (1 + rs)).toFixed(1) });
-  }
-  return result;
-}
-
-function calculateMACDSeries(data: { time: string | number; close: number }[], fast = 12, slow = 26, signal = 9) {
-  const macdLine: { time: string | number; value: number }[] = [];
-  const signalLine: { time: string | number; value: number }[] = [];
-  const histogram: { time: string | number; value: number; color: string }[] = [];
-
-  const emaFast = calculateEMA(data, fast);
-  const emaSlow = calculateEMA(data, slow);
-
-  const fastMap = new Map(emaFast.map((d) => [String(d.time), d.value]));
-  const slowMap = new Map(emaSlow.map((d) => [String(d.time), d.value]));
-
-  const rawMacd: { time: string | number; close: number }[] = [];
-  data.forEach((d) => {
-    const f = fastMap.get(String(d.time));
-    const s = slowMap.get(String(d.time));
-    if (f !== undefined && s !== undefined) {
-      const val = +(f - s).toFixed(2);
-      macdLine.push({ time: d.time, value: val });
-      rawMacd.push({ time: d.time, close: val });
-    }
-  });
-
-  const sigSeries = calculateEMA(rawMacd, signal);
-  const sigMap = new Map(sigSeries.map((d) => [String(d.time), d.value]));
-
-  macdLine.forEach((m) => {
-    const s = sigMap.get(String(m.time));
-    if (s !== undefined) {
-      signalLine.push({ time: m.time, value: s });
-      const hist = +(m.value - s).toFixed(2);
-      histogram.push({
-        time: m.time,
-        value: hist,
-        color: hist >= 0 ? 'rgba(16, 185, 129, 0.7)' : 'rgba(239, 68, 68, 0.7)',
-      });
-    }
-  });
-
-  return { macdLine, signalLine, histogram };
-}
-
-function calculateClassicalPivots(high: number, low: number, close: number) {
-  const pivot = (high + low + close) / 3;
-  const r1 = 2 * pivot - low;
-  const s1 = 2 * pivot - high;
-  const r2 = pivot + (high - low);
-  const s2 = pivot - (high - low);
-  return {
-    pivot: +pivot.toFixed(2),
-    r1: +r1.toFixed(2),
-    r2: +r2.toFixed(2),
-    s1: +s1.toFixed(2),
-    s2: +s2.toFixed(2),
-  };
-}
-
-function calculateFibonacciLevels(high: number, low: number) {
-  const diff = high - low;
-  return {
-    f100: +high.toFixed(2),
-    f786: +(high - 0.214 * diff).toFixed(2),
-    f618: +(high - 0.382 * diff).toFixed(2),
-    f500: +(high - 0.500 * diff).toFixed(2),
-    f382: +(high - 0.618 * diff).toFixed(2),
-    f236: +(high - 0.764 * diff).toFixed(2),
-    f0: +low.toFixed(2),
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
 
@@ -255,12 +114,12 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
   const oscContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const oscChartRef = useRef<IChartApi | null>(null);
-  const mainSeriesRef = useRef<any>(null);
-  const volumeSeriesRef = useRef<any>(null);
-  const indicatorSeriesRefs = useRef<{ [key: string]: any }>({});
-  const oscSeriesRefs = useRef<{ [key: string]: any }>({});
-  const priceLineRefs = useRef<{ [key: string]: IPriceLine }>({});
-  const rawBarsRef = useRef<any[]>([]);
+  const mainSeriesRef = useRef<ISeriesApi<any> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<any> | null>(null);
+  const indicatorSeriesRefs = useRef<Record<string, ISeriesApi<any>>>({});
+  const oscSeriesRefs = useRef<Record<string, ISeriesApi<any>>>({});
+  const priceLineRefs = useRef<Record<string, IPriceLine>>({});
+  const rawBarsRef = useRef<OHLCVPoint[]>([]);
 
   // Cached calculated series data for quick crosshair lookup
   const calcDataMapRef = useRef<{
@@ -335,8 +194,8 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
     emaFastVal: number | null;
     emaSlowVal: number | null;
     bbBandwidth: number | null;
-    pivots: { pivot: number; r1: number; r2: number; s1: number; s2: number } | null;
-    fibs: { f100: number; f786: number; f618: number; f500: number; f382: number; f236: number; f0: number } | null;
+    pivots: ClassicalPivots | null;
+    fibs: FibonacciLevels | null;
     overallSignal: 'STRONG BUY' | 'BUY' | 'NEUTRAL' | 'SELL' | 'STRONG SELL';
     signalScore: number;
   }>({
@@ -362,49 +221,6 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
   const updateTick = usePortfolioStore((s) => s.updateTick);
   const setWsConnected = usePortfolioStore((s) => s.setWsConnected);
   const chartDirective = usePortfolioStore((s) => s.chartDirective);
-
-  // -------------------------------------------------------------------------
-  // Helper: Timestamp Normalizer (Guarantees Strict Type Parity)
-  // -------------------------------------------------------------------------
-  const normalizeBarTime = useCallback(
-    (timestamp: string | number, isIntraday: boolean, intervalSeconds: number = 300): string | number => {
-      if (isIntraday) {
-        let sec: number;
-        if (typeof timestamp === 'number') {
-          sec = timestamp > 1e11 ? Math.floor(timestamp / 1000) : timestamp;
-        } else {
-          sec = Math.floor(new Date(timestamp).getTime() / 1000);
-        }
-        if (isNaN(sec)) sec = Math.floor(Date.now() / 1000);
-        return Math.floor(sec / intervalSeconds) * intervalSeconds;
-      }
-
-      // For Daily/Weekly/Monthly timeframes: MUST strictly be string 'YYYY-MM-DD'
-      if (typeof timestamp === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(timestamp)) {
-        return timestamp;
-      }
-      const d = new Date(timestamp);
-      if (!isNaN(d.getTime())) {
-        return d.toISOString().split('T')[0];
-      }
-      return String(timestamp).split('T')[0];
-    },
-    []
-  );
-
-  const formatDisplayTime = useCallback((time: string | number): string => {
-    if (typeof time === 'number') {
-      const d = new Date(time * 1000);
-      return d.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      });
-    }
-    return String(time);
-  }, []);
 
   // -------------------------------------------------------------------------
   // Automatic Chatbot-to-Chart Directive Bridge
@@ -475,8 +291,8 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
           const lastBar = bars[lastIdx];
 
           if (lastBar.time === barTime) {
-            // Update current candle in-place (no new bar added, no scale tearing)
-            const updatedBar = {
+            // Update current candle in-place
+            const updatedBar: OHLCVPoint = {
               ...lastBar,
               high: Math.max(lastBar.high, tick.price),
               low: Math.min(lastBar.low, tick.price),
@@ -485,17 +301,17 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
             bars[lastIdx] = updatedBar;
 
             if (chartType === 'candlestick' || chartType === 'bar') {
-              mainSeriesRef.current.update(updatedBar);
+              mainSeriesRef.current.update(updatedBar as any);
             } else {
-              mainSeriesRef.current.update({ time: barTime, value: tick.price });
+              mainSeriesRef.current.update({ time: barTime as any, value: tick.price });
             }
           } else if (
             (typeof barTime === 'number' && typeof lastBar.time === 'number' && barTime > lastBar.time) ||
             (typeof barTime === 'string' && typeof lastBar.time === 'string' && barTime.localeCompare(lastBar.time) > 0)
           ) {
             // Start next legitimate interval candle
-            const newBar = {
-              time: barTime as any,
+            const newBar: OHLCVPoint = {
+              time: barTime,
               open: tick.price,
               high: tick.price,
               low: tick.price,
@@ -505,9 +321,9 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
             bars.push(newBar);
 
             if (chartType === 'candlestick' || chartType === 'bar') {
-              mainSeriesRef.current.update(newBar);
+              mainSeriesRef.current.update(newBar as any);
             } else {
-              mainSeriesRef.current.update({ time: barTime, value: tick.price });
+              mainSeriesRef.current.update({ time: barTime as any, value: tick.price });
             }
           }
         }
@@ -515,7 +331,7 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
         // Ignore malformed messages
       }
     },
-    [ticker, chartType, timeframe, updateTick, normalizeBarTime]
+    [ticker, chartType, timeframe, updateTick]
   );
 
   const onStatusChange = useCallback(
@@ -535,9 +351,9 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
   // -------------------------------------------------------------------------
   const refreshPriceLines = useCallback(
     (
-      mainSeries: any,
-      pivots: { pivot: number; r1: number; r2: number; s1: number; s2: number } | null,
-      fibs: { f100: number; f786: number; f618: number; f500: number; f382: number; f236: number; f0: number } | null,
+      mainSeries: ISeriesApi<any>,
+      pivots: ClassicalPivots | null,
+      fibs: FibonacciLevels | null,
       customLines: CustomPriceLine[],
       showPivots: boolean,
       showFibs: boolean
@@ -664,7 +480,7 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
   // Render Indicators on Chart
   // -------------------------------------------------------------------------
   const applyIndicators = useCallback(
-    (bars: any[], chart: IChartApi) => {
+    (bars: OHLCVPoint[], chart: IChartApi) => {
       if (!bars || bars.length === 0) return;
 
       const closeData = bars.map((b) => ({ time: b.time, close: b.close }));
@@ -676,7 +492,7 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
       const minLow = Math.min(...rawLows);
       const lastClose = rawCloses[rawCloses.length - 1];
 
-      // 1. Compute Indicators
+      // 1. Compute Indicators via pure utility modules
       const rsiSeriesData = calculateRSISeries(closeData, params.rsiPeriod);
       const macdData = calculateMACDSeries(closeData);
 
@@ -828,10 +644,10 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
           value: b.volume || 1000000,
           color: b.close >= b.open ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
         }));
-        volumeSeriesRef.current.setData(volData);
+        volumeSeriesRef.current.setData(volData as any);
       }
 
-      // 3. Pattern Markers (Golden Cross / Death Cross / RSI Extremes)
+      // 3. Pattern Markers (Golden Cross / Death Cross)
       if (indicators.patterns && mainSeriesRef.current && smaFast.length > 2 && smaSlow.length > 2) {
         const markers: SeriesMarker<any>[] = [];
         const fastMap = new Map(smaFast.map((d) => [String(d.time), d.value]));
@@ -846,20 +662,17 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
           const sCurr = slowMap.get(tCurr);
 
           if (fPrev && sPrev && fCurr && sCurr) {
-            // Golden Cross
             if (fPrev <= sPrev && fCurr > sCurr) {
               markers.push({
-                time: bars[i].time,
+                time: bars[i].time as any,
                 position: 'belowBar',
                 color: '#10b981',
                 shape: 'arrowUp',
                 text: 'Golden Cross',
               });
-            }
-            // Death Cross
-            else if (fPrev >= sPrev && fCurr < sCurr) {
+            } else if (fPrev >= sPrev && fCurr < sCurr) {
               markers.push({
-                time: bars[i].time,
+                time: bars[i].time as any,
                 position: 'aboveBar',
                 color: '#ef4444',
                 shape: 'arrowDown',
@@ -1076,7 +889,7 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
       chartRef.current = null;
       oscChartRef.current = null;
     };
-  }, [height, oscillatorView, formatDisplayTime]);
+  }, [height, oscillatorView]);
 
   // -------------------------------------------------------------------------
   // Load / Update Series Data When Ticker, Timeframe, or Chart Type Changes
@@ -1092,7 +905,7 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
       mainSeriesRef.current = null;
     }
 
-    let mainSeries: any;
+    let mainSeries: ISeriesApi<any>;
     if (chartType === 'candlestick') {
       mainSeries = chart.addCandlestickSeries({
         upColor: '#10b981',
@@ -1122,7 +935,7 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
     }
     mainSeriesRef.current = mainSeries;
 
-    const tfMap: { [k in Timeframe]: { period: string; interval: string } } = {
+    const tfMap: Record<Timeframe, { period: string; interval: string }> = {
       '1D': { period: '1d', interval: '5m' },
       '5D': { period: '5d', interval: '15m' },
       '1M': { period: '1mo', interval: '1d' },
@@ -1135,8 +948,6 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
     const { period, interval } = tfMap[timeframe] || { period: '1mo', interval: '1d' };
     const isIntraday = timeframe === '1D' || timeframe === '5D';
     const intervalSeconds = timeframe === '5D' ? 900 : 300;
-    const API_BASE =
-      (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) || 'http://localhost:8080';
 
     fetch(`${API_BASE}/market/ohlcv/${ticker}?period=${period}&interval=${interval}`)
       .then((r) => (r.ok ? r.json() : null))
@@ -1144,7 +955,7 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
         if (!bars || !Array.isArray(bars) || bars.length === 0) return;
 
         // Strictly normalize and deduplicate timestamps
-        const mappedBars = bars
+        const mappedBars: OHLCVPoint[] = bars
           .map((b: any) => ({
             time: normalizeBarTime(b.timestamp, isIntraday, intervalSeconds),
             open: Number(b.open),
@@ -1159,7 +970,7 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
           });
 
         // Filter duplicates strictly
-        const chartData: any[] = [];
+        const chartData: OHLCVPoint[] = [];
         const seenTimes = new Set<string | number>();
         mappedBars.forEach((bar) => {
           if (!seenTimes.has(bar.time)) {
@@ -1172,9 +983,9 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
         rawBarsRef.current = chartData;
 
         if (chartType === 'candlestick' || chartType === 'bar') {
-          mainSeries.setData(chartData);
+          mainSeries.setData(chartData as any);
         } else {
-          mainSeries.setData(chartData.map((d) => ({ time: d.time, value: d.close })));
+          mainSeries.setData(chartData.map((d) => ({ time: d.time as any, value: d.close })));
         }
 
         const lastBar = chartData[chartData.length - 1];
@@ -1191,7 +1002,7 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
         } catch {}
       })
       .catch((err) => console.debug('Historical OHLCV fetch skipped:', err));
-  }, [ticker, timeframe, chartType, applyIndicators, normalizeBarTime, formatDisplayTime]);
+  }, [ticker, timeframe, chartType, applyIndicators]);
 
   // -------------------------------------------------------------------------
   // Re-apply Indicators When Toggled or Parameters Change

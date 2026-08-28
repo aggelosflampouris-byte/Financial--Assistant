@@ -19,6 +19,7 @@ import { FundamentalsStudio } from '@/components/fundamentals/FundamentalsStudio
 import { MarketNewsWire } from '@/components/news/MarketNewsWire';
 import { HITLConfirmationModal } from '@/components/advisor/HITLConfirmationModal';
 import { usePortfolioStore } from '@/store/portfolioStore';
+import { DEFAULT_TICKERS, ASSET_NAMES, API_BASE } from '@/constants/market';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -213,9 +214,6 @@ function FormattedChatMessage({ content }: { content: string }) {
 // Main Dashboard
 // ---------------------------------------------------------------------------
 
-const DEFAULT_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'NVDA', 'SPY'];
-const API_BASE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) || 'http://localhost:8080';
-
 export default function DashboardPage() {
   // --- State ---
   const [selectedTicker, setSelectedTicker] = useState('AAPL');
@@ -384,14 +382,6 @@ export default function DashboardPage() {
   // Watchlist Sorting State
   const [sortField, setSortField] = useState<'ticker' | 'price' | 'changePct'>('changePct');
   const [sortAsc, setSortAsc] = useState(false);
-
-  const assetNames: Record<string, string> = {
-    AAPL: 'Apple Inc.',
-    MSFT: 'Microsoft Corp.',
-    GOOGL: 'Alphabet Inc.',
-    NVDA: 'NVIDIA Corporation',
-    SPY: 'SPDR S&P 500 ETF Trust',
-  };
 
   const sortedTickers = [...DEFAULT_TICKERS].sort((a, b) => {
     const tickA = ticks[a];
@@ -781,7 +771,7 @@ export default function DashboardPage() {
                               {sym}
                             </strong>
                             <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>
-                              {assetNames[sym] || sym}
+                              {ASSET_NAMES[sym] || sym}
                             </span>
                           </div>
                         </td>

@@ -18,6 +18,27 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 
+export interface CompanyFundamentals {
+  name: string;
+  marketCap: string;
+  peTTM: number;
+  peForward: number;
+  peg: number;
+  ps: number;
+  evEbitda: number;
+  roe: string;
+  fcfYield: string;
+  dividendYield: string;
+  revenueTTM: string;
+  revenueYoY: string;
+  netIncomeTTM: string;
+  netMargin: string;
+  grossMargin: string;
+  cashEquivalents: string;
+  totalDebt: string;
+  freeCashFlow: string;
+}
+
 interface FundamentalsStudioProps {
   ticker: string;
   onSendChatQuery?: (query: string) => void;
@@ -26,7 +47,7 @@ interface FundamentalsStudioProps {
 export function FundamentalsStudio({ ticker, onSendChatQuery }: FundamentalsStudioProps) {
   const [statementTab, setStatementTab] = useState<'income' | 'balance' | 'cashFlow'>('income');
 
-  const fundamentalData: Record<string, any> = {
+  const fundamentalData: Record<string, CompanyFundamentals> = {
     AAPL: {
       name: 'Apple Inc.',
       marketCap: '3.42T',

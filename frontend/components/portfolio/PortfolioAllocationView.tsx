@@ -23,6 +23,7 @@ import {
   DollarSign,
 } from 'lucide-react';
 import { usePortfolioStore } from '@/store/portfolioStore';
+import { ASSET_NAMES, ASSET_COLORS } from '@/constants/market';
 
 interface PositionData {
   ticker: string;
@@ -37,24 +38,6 @@ interface PositionData {
   dayChangePct: number;
   color: string;
 }
-
-const ASSET_COLORS: Record<string, string> = {
-  AAPL: '#38bdf8',
-  MSFT: '#00d2ff',
-  NVDA: '#10b981',
-  GOOGL: '#f59e0b',
-  SPY: '#8b5cf6',
-  CASH: '#64748b',
-};
-
-const ASSET_NAMES: Record<string, string> = {
-  AAPL: 'Apple Inc.',
-  MSFT: 'Microsoft Corporation',
-  NVDA: 'NVIDIA Corporation',
-  GOOGL: 'Alphabet Inc.',
-  SPY: 'SPDR S&P 500 ETF Trust',
-  CASH: 'USD Treasury / Cash Reserves',
-};
 
 interface PortfolioAllocationViewProps {
   onSelectTicker?: (ticker: string) => void;

@@ -1,17 +1,15 @@
 /**
  * frontend/components/charts/TradingViewChart.tsx
  * Institutional TradingView Lightweight Charts v4 with:
+ * - Anti-Tearing Strict Time-Scale Normalization (Daily 'YYYY-MM-DD' & Intraday 5m/15m Bucketing)
+ * - True In-Place Live Candle Updates (Prevents 1-second bar accumulation and x-axis distortion)
  * - Visual Line Overlays (SMA 20/50, EMA 9/21, Bollinger Bands, Volume)
- * - Auto-Calculated Classical Pivot Levels (R2, R1, Pivot, S1, S2)
- * - Auto-Calculated Fibonacci Retracement Levels (0% to 100%)
- * - Supply & Demand Liquidity Zones (R1-R2 Distribution, S1-S2 Accumulation)
- * - Candlestick & Technical Pattern Event Markers (Golden Cross, Death Cross, RSI Extremes)
- * - Toggleable Synchronized Oscillator Sub-Panel (Wilder RSI 14 & MACD 12/26/9)
- * - Interactive Floating Heads-Up Display (HUD) with live OHLCV and indicator values on hover
- * - Minimalist, single-line institutional control bar with 1-click indicator pills
- * - Key Levels & Technical Bias Summary Ribbon with distance percentages
+ * - Classical Pivots & Fibonacci Retracement Levels
+ * - Supply & Demand Order Block Zones (Distribution & Accumulation Blocks)
+ * - Candlestick Pattern Event Markers (Golden Cross, Death Cross, Overbought/Oversold Reversals)
+ * - Synchronized Oscillator Sub-Panel (RSI 14 & MACD 12/26/9 with synchronized time scales)
+ * - Interactive Floating Heads-Up Display (HUD) with live OHLCV and indicator inspection
  * - Slide-Over Settings & Annotation Drawer (Indicator tuning, Custom levels, Quant stats)
- * - Robust Timestamp Normalization for Daily & Intraday data
  * - Bi-directional AI Advisor Chart Directive Bridge
  */
 'use client';
@@ -20,7 +18,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   createChart,
   IChartApi,
-  CandlestickData,
   CrosshairMode,
   ColorType,
   LineStyle,
@@ -36,8 +33,8 @@ import {
   Gauge,
   Sparkles,
   X,
-  Activity,
-  Layers,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { usePortfolioStore } from '@/store/portfolioStore';
@@ -92,50 +89,6 @@ export interface IndicatorParameters {
 interface TradingViewChartProps {
   ticker: string;
   height?: number;
-}
-
-// ---------------------------------------------------------------------------
-// Timestamp Normalizer for Lightweight Charts
-// ---------------------------------------------------------------------------
-
-function toChartTime(timestamp: string | number, isIntraday: boolean): string | number {
-  if (typeof timestamp === 'number') {
-    return timestamp > 1e11 ? Math.floor(timestamp / 1000) : timestamp;
-  }
-
-  // If intraday timeframe (1D, 5D), convert to UNIX timestamp in seconds
-  if (isIntraday || timestamp.includes('T') || timestamp.includes(':')) {
-    const d = new Date(timestamp);
-    if (!isNaN(d.getTime())) {
-      return Math.floor(d.getTime() / 1000);
-    }
-  }
-
-  // If daily/weekly and format is YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(timestamp)) {
-    return timestamp;
-  }
-
-  const d = new Date(timestamp);
-  if (!isNaN(d.getTime())) {
-    return d.toISOString().split('T')[0];
-  }
-
-  return timestamp;
-}
-
-function formatDisplayTime(time: string | number): string {
-  if (typeof time === 'number') {
-    const d = new Date(time * 1000);
-    return d.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-  }
-  return String(time);
 }
 
 // ---------------------------------------------------------------------------
@@ -232,13 +185,13 @@ function calculateMACDSeries(data: { time: string | number; close: number }[], f
   const emaFast = calculateEMA(data, fast);
   const emaSlow = calculateEMA(data, slow);
 
-  const fastMap = new Map(emaFast.map((d) => [d.time, d.value]));
-  const slowMap = new Map(emaSlow.map((d) => [d.time, d.value]));
+  const fastMap = new Map(emaFast.map((d) => [String(d.time), d.value]));
+  const slowMap = new Map(emaSlow.map((d) => [String(d.time), d.value]));
 
   const rawMacd: { time: string | number; close: number }[] = [];
   data.forEach((d) => {
-    const f = fastMap.get(d.time);
-    const s = slowMap.get(d.time);
+    const f = fastMap.get(String(d.time));
+    const s = slowMap.get(String(d.time));
     if (f !== undefined && s !== undefined) {
       const val = +(f - s).toFixed(2);
       macdLine.push({ time: d.time, value: val });
@@ -247,17 +200,17 @@ function calculateMACDSeries(data: { time: string | number; close: number }[], f
   });
 
   const sigSeries = calculateEMA(rawMacd, signal);
-  const sigMap = new Map(sigSeries.map((d) => [d.time, d.value]));
+  const sigMap = new Map(sigSeries.map((d) => [String(d.time), d.value]));
 
   macdLine.forEach((m) => {
-    const s = sigMap.get(m.time);
+    const s = sigMap.get(String(m.time));
     if (s !== undefined) {
       signalLine.push({ time: m.time, value: s });
       const hist = +(m.value - s).toFixed(2);
       histogram.push({
         time: m.time,
         value: hist,
-        color: hist >= 0 ? 'rgba(16, 185, 129, 0.65)' : 'rgba(239, 68, 68, 0.65)',
+        color: hist >= 0 ? 'rgba(16, 185, 129, 0.7)' : 'rgba(239, 68, 68, 0.7)',
       });
     }
   });
@@ -297,7 +250,7 @@ function calculateFibonacciLevels(high: number, low: number) {
 // Main Component
 // ---------------------------------------------------------------------------
 
-export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps) {
+export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const oscContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -308,7 +261,6 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
   const oscSeriesRefs = useRef<{ [key: string]: any }>({});
   const priceLineRefs = useRef<{ [key: string]: IPriceLine }>({});
   const rawBarsRef = useRef<any[]>([]);
-  const currentBarRef = useRef<any>(null);
 
   // Cached calculated series data for quick crosshair lookup
   const calcDataMapRef = useRef<{
@@ -344,7 +296,7 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
   const [priceChange, setPriceChange] = useState<number>(0);
   const [lastTickTime, setLastTickTime] = useState<string>('');
   const [hoverData, setHoverData] = useState<HoverData | null>(null);
-  const [oscillatorView, setOscillatorView] = useState<OscillatorView>('rsi');
+  const [oscillatorView, setOscillatorView] = useState<OscillatorView>('none');
 
   // Drawer modal state
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -412,6 +364,49 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
   const chartDirective = usePortfolioStore((s) => s.chartDirective);
 
   // -------------------------------------------------------------------------
+  // Helper: Timestamp Normalizer (Guarantees Strict Type Parity)
+  // -------------------------------------------------------------------------
+  const normalizeBarTime = useCallback(
+    (timestamp: string | number, isIntraday: boolean, intervalSeconds: number = 300): string | number => {
+      if (isIntraday) {
+        let sec: number;
+        if (typeof timestamp === 'number') {
+          sec = timestamp > 1e11 ? Math.floor(timestamp / 1000) : timestamp;
+        } else {
+          sec = Math.floor(new Date(timestamp).getTime() / 1000);
+        }
+        if (isNaN(sec)) sec = Math.floor(Date.now() / 1000);
+        return Math.floor(sec / intervalSeconds) * intervalSeconds;
+      }
+
+      // For Daily/Weekly/Monthly timeframes: MUST strictly be string 'YYYY-MM-DD'
+      if (typeof timestamp === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(timestamp)) {
+        return timestamp;
+      }
+      const d = new Date(timestamp);
+      if (!isNaN(d.getTime())) {
+        return d.toISOString().split('T')[0];
+      }
+      return String(timestamp).split('T')[0];
+    },
+    []
+  );
+
+  const formatDisplayTime = useCallback((time: string | number): string => {
+    if (typeof time === 'number') {
+      const d = new Date(time * 1000);
+      return d.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+    }
+    return String(time);
+  }, []);
+
+  // -------------------------------------------------------------------------
   // Automatic Chatbot-to-Chart Directive Bridge
   // -------------------------------------------------------------------------
   useEffect(() => {
@@ -455,7 +450,7 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
   }, [chartDirective, ticker]);
 
   // -------------------------------------------------------------------------
-  // WebSocket Handler
+  // WebSocket Handler (Anti-Tearing True In-Place Candle Update)
   // -------------------------------------------------------------------------
   const onMessage = useCallback(
     (data: string) => {
@@ -471,37 +466,56 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
         setLastTickTime(now.toLocaleTimeString('en-US', { hour12: false }));
 
         const isIntraday = timeframe === '1D' || timeframe === '5D';
-        const chartTime = toChartTime(tick.timestamp, isIntraday);
+        const intervalSeconds = timeframe === '5D' ? 900 : 300;
+        const barTime = normalizeBarTime(tick.timestamp || Date.now(), isIntraday, intervalSeconds);
 
-        if (mainSeriesRef.current) {
-          if (!currentBarRef.current || currentBarRef.current.time !== chartTime) {
-            currentBarRef.current = {
-              time: chartTime as any,
+        if (mainSeriesRef.current && rawBarsRef.current.length > 0) {
+          const bars = rawBarsRef.current;
+          const lastIdx = bars.length - 1;
+          const lastBar = bars[lastIdx];
+
+          if (lastBar.time === barTime) {
+            // Update current candle in-place (no new bar added, no scale tearing)
+            const updatedBar = {
+              ...lastBar,
+              high: Math.max(lastBar.high, tick.price),
+              low: Math.min(lastBar.low, tick.price),
+              close: tick.price,
+            };
+            bars[lastIdx] = updatedBar;
+
+            if (chartType === 'candlestick' || chartType === 'bar') {
+              mainSeriesRef.current.update(updatedBar);
+            } else {
+              mainSeriesRef.current.update({ time: barTime, value: tick.price });
+            }
+          } else if (
+            (typeof barTime === 'number' && typeof lastBar.time === 'number' && barTime > lastBar.time) ||
+            (typeof barTime === 'string' && typeof lastBar.time === 'string' && barTime.localeCompare(lastBar.time) > 0)
+          ) {
+            // Start next legitimate interval candle
+            const newBar = {
+              time: barTime as any,
               open: tick.price,
               high: tick.price,
               low: tick.price,
               close: tick.price,
+              volume: tick.volume || 1000,
             };
-          } else {
-            currentBarRef.current = {
-              ...currentBarRef.current,
-              high: Math.max(currentBarRef.current.high, tick.price),
-              low: Math.min(currentBarRef.current.low, tick.price),
-              close: tick.price,
-            };
-          }
+            bars.push(newBar);
 
-          if (chartType === 'candlestick' || chartType === 'bar') {
-            mainSeriesRef.current.update(currentBarRef.current);
-          } else {
-            mainSeriesRef.current.update({ time: chartTime, value: tick.price });
+            if (chartType === 'candlestick' || chartType === 'bar') {
+              mainSeriesRef.current.update(newBar);
+            } else {
+              mainSeriesRef.current.update({ time: barTime, value: tick.price });
+            }
           }
         }
       } catch {
         // Ignore malformed messages
       }
     },
-    [ticker, chartType, timeframe, updateTick]
+    [ticker, chartType, timeframe, updateTick, normalizeBarTime]
   );
 
   const onStatusChange = useCallback(
@@ -820,12 +834,12 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
       // 3. Pattern Markers (Golden Cross / Death Cross / RSI Extremes)
       if (indicators.patterns && mainSeriesRef.current && smaFast.length > 2 && smaSlow.length > 2) {
         const markers: SeriesMarker<any>[] = [];
-        const fastMap = new Map(smaFast.map((d) => [d.time, d.value]));
-        const slowMap = new Map(smaSlow.map((d) => [d.time, d.value]));
+        const fastMap = new Map(smaFast.map((d) => [String(d.time), d.value]));
+        const slowMap = new Map(smaSlow.map((d) => [String(d.time), d.value]));
 
         for (let i = 1; i < bars.length; i++) {
-          const tPrev = bars[i - 1].time;
-          const tCurr = bars[i].time;
+          const tPrev = String(bars[i - 1].time);
+          const tCurr = String(bars[i].time);
           const fPrev = fastMap.get(tPrev);
           const sPrev = slowMap.get(tPrev);
           const fCurr = fastMap.get(tCurr);
@@ -835,7 +849,7 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
             // Golden Cross
             if (fPrev <= sPrev && fCurr > sCurr) {
               markers.push({
-                time: tCurr,
+                time: bars[i].time,
                 position: 'belowBar',
                 color: '#10b981',
                 shape: 'arrowUp',
@@ -845,7 +859,7 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
             // Death Cross
             else if (fPrev >= sPrev && fCurr < sCurr) {
               markers.push({
-                time: tCurr,
+                time: bars[i].time,
                 position: 'aboveBar',
                 color: '#ef4444',
                 shape: 'arrowDown',
@@ -855,7 +869,7 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
           }
         }
         try {
-          mainSeriesRef.current.setMarkers(markers.slice(-6)); // Show latest 6 pattern triggers
+          mainSeriesRef.current.setMarkers(markers.slice(-6));
         } catch {}
       } else if (mainSeriesRef.current) {
         try {
@@ -909,6 +923,10 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
           oscSeriesRefs.current.macdSig = macdSig;
           oscSeriesRefs.current.macdHist = macdHist;
         }
+
+        try {
+          oscChartRef.current.timeScale().fitContent();
+        } catch {}
       }
     },
     [indicators, params, priceLines, oscillatorView, refreshPriceLines]
@@ -1022,7 +1040,7 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
       oscContainerRef.current.innerHTML = '';
       const oscChart = createChart(oscContainerRef.current, {
         width: oscContainerRef.current.clientWidth,
-        height: 120,
+        height: 110,
         layout: {
           background: { type: ColorType.Solid, color: 'rgba(15, 23, 42, 0.5)' },
           textColor: '#8b99b8',
@@ -1058,7 +1076,7 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
       chartRef.current = null;
       oscChartRef.current = null;
     };
-  }, [height, oscillatorView]);
+  }, [height, oscillatorView, formatDisplayTime]);
 
   // -------------------------------------------------------------------------
   // Load / Update Series Data When Ticker, Timeframe, or Chart Type Changes
@@ -1116,6 +1134,7 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
 
     const { period, interval } = tfMap[timeframe] || { period: '1mo', interval: '1d' };
     const isIntraday = timeframe === '1D' || timeframe === '5D';
+    const intervalSeconds = timeframe === '5D' ? 900 : 300;
     const API_BASE =
       (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) || 'http://localhost:8080';
 
@@ -1124,10 +1143,10 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
       .then((bars) => {
         if (!bars || !Array.isArray(bars) || bars.length === 0) return;
 
-        // Normalize timestamps and ensure strictly ascending unique order
+        // Strictly normalize and deduplicate timestamps
         const mappedBars = bars
           .map((b: any) => ({
-            time: toChartTime(b.timestamp, isIntraday),
+            time: normalizeBarTime(b.timestamp, isIntraday, intervalSeconds),
             open: Number(b.open),
             high: Number(b.high),
             low: Number(b.low),
@@ -1139,7 +1158,7 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
             return String(a.time).localeCompare(String(b.time));
           });
 
-        // Filter duplicates
+        // Filter duplicates strictly
         const chartData: any[] = [];
         const seenTimes = new Set<string | number>();
         mappedBars.forEach((bar) => {
@@ -1172,7 +1191,7 @@ export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps
         } catch {}
       })
       .catch((err) => console.debug('Historical OHLCV fetch skipped:', err));
-  }, [ticker, timeframe, chartType, applyIndicators]);
+  }, [ticker, timeframe, chartType, applyIndicators, normalizeBarTime, formatDisplayTime]);
 
   // -------------------------------------------------------------------------
   // Re-apply Indicators When Toggled or Parameters Change

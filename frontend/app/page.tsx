@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   TrendingUp, TrendingDown, Shield, Zap, Activity,
   BarChart3, MessageSquare, RefreshCw, AlertCircle, Wallet, DollarSign,
-  PieChart, Sliders, Send, Building2, Newspaper, Layers, UploadCloud, Bell, FileText
+  PieChart, Sliders, Send, Building2, Newspaper, Layers, UploadCloud, Bell, FileText, Briefcase
 } from 'lucide-react';
 import { TradingViewChart } from '@/components/charts/TradingViewChart';
 import { PortfolioAllocationView } from '@/components/portfolio/PortfolioAllocationView';
@@ -891,27 +891,48 @@ export default function DashboardPage() {
                 </p>
               </div>
 
-              {/* 1-Click Research Report Button in Header */}
-              <button
-                onClick={() => sendMessage(`Generate institutional research report and technical teardown paper for ${selectedTicker}`)}
-                className="btn btn-secondary"
-                style={{
-                  padding: '4px 10px',
-                  fontSize: '0.72rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  marginLeft: 'auto',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(59, 130, 246, 0.12)',
-                  borderColor: 'rgba(59, 130, 246, 0.3)',
-                  color: 'var(--color-accent-bright)',
-                }}
-                title={`Generate downloadable research report paper for ${selectedTicker}`}
-              >
-                <FileText size={13} />
-                <span>Report Paper (${selectedTicker})</span>
-              </button>
+              {/* 1-Click Research & Portfolio Report Buttons */}
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button
+                  onClick={() => sendMessage(`Generate institutional research report and technical teardown paper for ${selectedTicker}`)}
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '0.7rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(59, 130, 246, 0.12)',
+                    borderColor: 'rgba(59, 130, 246, 0.3)',
+                    color: 'var(--color-accent-bright)',
+                  }}
+                  title={`Generate downloadable research report paper for ${selectedTicker}`}
+                >
+                  <FileText size={12} />
+                  <span>Report ({selectedTicker})</span>
+                </button>
+
+                <button
+                  onClick={() => sendMessage(`Generate complete report of the full portfolio performance and risk audit`)}
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '0.7rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(16, 185, 129, 0.12)',
+                    borderColor: 'rgba(16, 185, 129, 0.3)',
+                    color: 'var(--color-success)',
+                  }}
+                  title="Generate complete audit report for the full $100,000 portfolio"
+                >
+                  <Briefcase size={12} />
+                  <span>Portfolio ($100k)</span>
+                </button>
+              </div>
             </div>
 
             {/* Messages */}
@@ -937,10 +958,10 @@ export default function DashboardPage() {
                     textAlign: 'left',
                   }}>
                     {[
+                      { icon: '💼', label: 'Generate Complete Report of Full Portfolio ($100k)', query: 'Generate complete report of the full portfolio performance and risk audit' },
                       { icon: '📄', label: `Generate Institutional Report Paper (${selectedTicker})`, query: `Generate institutional research report and technical teardown paper for ${selectedTicker}` },
                       { icon: '📈', label: `Analyze active chart (${selectedTicker})`, query: `Analyze technical indicators, momentum, and statistical levels for ${selectedTicker}` },
                       { icon: '🏆', label: 'Rank all watchlist assets by technical momentum', query: 'Compare all charts and rank watchlist assets by technical momentum and signals' },
-                      { icon: '🎯', label: 'Calculate support, resistance & volatility on active chart', query: `Show statistical support, resistance, RSI and Bollinger Bands on this chart` },
                     ].map((item, idx) => (
                       <button
                         key={idx}

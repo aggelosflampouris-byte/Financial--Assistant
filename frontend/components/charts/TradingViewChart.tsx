@@ -1091,18 +1091,20 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
         }}
       >
         {/* Left: Ticker, Live Price & Timeframes */}
+        {/* Left: Active Ticker Symbol, Real-Time Price, Timeframes & Chart Type */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {/* Symbol & Price Badge */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--color-text-primary)' }}>
+            <span style={{ fontWeight: 800, fontSize: '1.05rem', color: '#ffffff', letterSpacing: '0.02em' }}>
               {ticker}
             </span>
             {currentPrice !== null && (
               <span
                 style={{
-                  fontSize: '1.25rem',
+                  fontSize: '1.15rem',
                   fontWeight: 700,
-                  fontVariantNumeric: 'tabular-nums',
-                  color: 'var(--color-text-primary)',
+                  fontFamily: 'var(--font-mono)',
+                  color: '#ffffff',
                 }}
               >
                 ${currentPrice.toFixed(2)}
@@ -1112,8 +1114,11 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
               <span
                 style={{
                   color: isPositive ? 'var(--color-success)' : 'var(--color-danger)',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  background: isPositive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                  padding: '2px 6px',
+                  borderRadius: 4,
                 }}
               >
                 {isPositive ? '+' : ''}
@@ -1122,14 +1127,14 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
             )}
           </div>
 
-          {/* Timeframe Pills */}
+          {/* Timeframe Segmented Pills */}
           <div
             style={{
               display: 'flex',
-              background: 'rgba(255, 255, 255, 0.04)',
+              background: 'rgba(255, 255, 255, 0.06)',
               borderRadius: 'var(--radius-md)',
-              padding: 2,
-              border: '1px solid rgba(99, 131, 195, 0.15)',
+              padding: 3,
+              border: '1px solid rgba(255, 255, 255, 0.12)',
             }}
           >
             {(['1D', '5D', '1M', '3M', '6M', '1Y', 'YTD'] as Timeframe[]).map((tf) => (
@@ -1141,9 +1146,9 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                   color: timeframe === tf ? '#ffffff' : 'var(--color-text-secondary)',
                   border: 'none',
                   borderRadius: 'var(--radius-sm)',
-                  padding: '3px 8px',
-                  fontSize: '0.72rem',
-                  fontWeight: timeframe === tf ? 600 : 500,
+                  padding: '4px 10px',
+                  fontSize: '0.78rem',
+                  fontWeight: timeframe === tf ? 700 : 500,
                   cursor: 'pointer',
                   transition: 'all var(--transition-fast)',
                 }}
@@ -1157,10 +1162,10 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
           <div
             style={{
               display: 'flex',
-              background: 'rgba(255, 255, 255, 0.04)',
+              background: 'rgba(255, 255, 255, 0.06)',
               borderRadius: 'var(--radius-md)',
-              padding: 2,
-              border: '1px solid rgba(99, 131, 195, 0.15)',
+              padding: 3,
+              border: '1px solid rgba(255, 255, 255, 0.12)',
             }}
           >
             {(['candlestick', 'area', 'line', 'bar'] as ChartType[]).map((type) => (
@@ -1168,33 +1173,92 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                 key={type}
                 onClick={() => setChartType(type)}
                 style={{
-                  background: chartType === type ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
-                  color: chartType === type ? 'var(--color-accent-bright)' : 'var(--color-text-muted)',
+                  background: chartType === type ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
+                  color: chartType === type ? 'var(--color-accent-bright)' : 'var(--color-text-secondary)',
                   border: 'none',
                   borderRadius: 'var(--radius-sm)',
-                  padding: '3px 8px',
-                  fontSize: '0.7rem',
+                  padding: '4px 10px',
+                  fontSize: '0.76rem',
                   cursor: 'pointer',
                   textTransform: 'capitalize',
-                  fontWeight: chartType === type ? 600 : 500,
+                  fontWeight: chartType === type ? 700 : 500,
                 }}
               >
-                {type === 'candlestick' ? 'Candles' : type === 'bar' ? 'OHLC' : type}
+                {type === 'candlestick' ? '🕯️ Candles' : type === 'area' ? '🌊 Area' : type === 'line' ? '📈 Line' : '📊 OHLC'}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Right: Quick Essential Toggles & Drawer Action */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {/* Quick Essential Indicators */}
+        {/* Right: Quick Controls, Settings Button & Live Indicator */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            onClick={resetZoom}
+            className="btn btn-secondary"
+            style={{ padding: '5px 10px', fontSize: '0.76rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 4 }}
+            title="Reset Zoom / Fit View"
+          >
+            <RotateCcw size={13} />
+            <span>Reset</span>
+          </button>
+
+          <button
+            onClick={takeSnapshot}
+            className="btn btn-secondary"
+            style={{ padding: '5px 10px', fontSize: '0.76rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 4 }}
+            title="Export High-Res PNG"
+          >
+            <Camera size={13} />
+            <span>Snapshot</span>
+          </button>
+
+          {/* Prominent Settings Button */}
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className={`chart-settings-btn ${drawerOpen ? 'active' : ''}`}
+            title="Configure All Technical Indicators, Parameters & Custom Levels"
+          >
+            <SlidersHorizontal size={14} />
+            <span>Settings</span>
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
+            <span
+              className={`live-indicator ${isConnected ? 'pulsing' : ''}`}
+              style={{
+                color: isConnected ? 'var(--color-success)' : 'var(--color-text-muted)',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+              }}
+            >
+              {isConnected ? 'LIVE' : 'SYNCING'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ===================================================================== */}
+      {/* 2. TECHNICAL INDICATOR TOGGLES & REAL-TIME QUANT RADAR RIBBON          */}
+      {/* ===================================================================== */}
+      <div className="tech-ribbon">
+        {/* Left: Quick Essential Indicator Toggle Chips */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <button
             className={`indicator-pill ${indicators.sma ? 'active' : ''}`}
             onClick={() => setIndicators((prev) => ({ ...prev, sma: !prev.sma }))}
             title="Toggle Simple Moving Averages (SMA 20 & 50)"
           >
             <span className="indicator-dot" style={{ background: '#00d2ff' }} />
-            <span>SMA</span>
+            <span>SMA ({params.smaFast}/{params.smaSlow})</span>
+          </button>
+
+          <button
+            className={`indicator-pill ${indicators.ema ? 'active' : ''}`}
+            onClick={() => setIndicators((prev) => ({ ...prev, ema: !prev.ema }))}
+            title="Toggle Exponential Moving Averages (EMA 9 & 21)"
+          >
+            <span className="indicator-dot" style={{ background: '#e879f9' }} />
+            <span>EMA ({params.emaFast}/{params.emaSlow})</span>
           </button>
 
           <button
@@ -1203,7 +1267,7 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
             title="Toggle Bollinger Bands (20, 2σ)"
           >
             <span className="indicator-dot" style={{ background: '#38bdf8' }} />
-            <span>BB</span>
+            <span>Bollinger ({params.bbPeriod}, {params.bbStd}σ)</span>
           </button>
 
           <button
@@ -1215,80 +1279,24 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
             <span>Pivots</span>
           </button>
 
-          {/* Sub-Panel Toggle */}
           <button
             className={`indicator-pill ${oscillatorView !== 'none' ? 'active' : ''}`}
             onClick={() => setOscillatorView((prev) => (prev === 'none' ? 'rsi' : prev === 'rsi' ? 'macd' : 'none'))}
             title="Cycle Sub-Panel (RSI / MACD / Off)"
           >
             <span className="indicator-dot" style={{ background: '#c084fc' }} />
-            <span>{oscillatorView === 'none' ? 'Sub-Chart' : oscillatorView.toUpperCase()}</span>
+            <span>Sub-Panel: {oscillatorView === 'none' ? 'Off' : oscillatorView.toUpperCase()}</span>
           </button>
-
-          {/* Action Buttons */}
-          <button
-            onClick={resetZoom}
-            className="btn btn-secondary"
-            style={{ padding: '3px 7px', fontSize: '0.72rem', borderRadius: 'var(--radius-sm)' }}
-            title="Reset Zoom / Fit View"
-          >
-            <RotateCcw size={12} />
-          </button>
-
-          <button
-            onClick={takeSnapshot}
-            className="btn btn-secondary"
-            style={{ padding: '3px 7px', fontSize: '0.72rem', borderRadius: 'var(--radius-sm)' }}
-            title="Export High-Res PNG"
-          >
-            <Camera size={12} />
-          </button>
-
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className={`btn btn-secondary ${drawerOpen ? 'btn-active' : ''}`}
-            style={{
-              padding: '3px 8px',
-              fontSize: '0.72rem',
-              borderRadius: 'var(--radius-sm)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              background: drawerOpen ? 'var(--color-accent-primary)' : 'rgba(255,255,255,0.05)',
-              color: drawerOpen ? '#fff' : 'var(--color-text-secondary)',
-            }}
-            title="Configure All Indicators, Parameters & Custom Price Lines"
-          >
-            <SlidersHorizontal size={12} />
-            <span>Settings</span>
-          </button>
-
-          <span
-            className={`live-indicator ${isConnected ? 'pulsing' : ''}`}
-            style={{
-              color: isConnected ? 'var(--color-success)' : 'var(--color-text-muted)',
-              fontSize: '0.7rem',
-              fontWeight: 600,
-              marginLeft: 2,
-            }}
-          >
-            {isConnected ? 'LIVE' : 'SYNCING'}
-          </span>
         </div>
-      </div>
 
-      {/* ===================================================================== */}
-      {/* 2. KEY LEVELS & TECHNICAL BIAS SUMMARY RIBBON */}
-      {/* ===================================================================== */}
-      <div className="tech-ribbon">
-        {/* Left: Immediate S/R Levels & Pivot with distance % */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {/* Right: Real-time Quantitative Radar Signals */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           {liveMetrics.pivots && (
             <>
               <span className="tech-level-pill support" title="Classical Immediate Support 1">
                 <strong>S1:</strong> ${liveMetrics.pivots.s1} {s1Dist && `(${s1Dist}%)`}
               </span>
-              <span className="tech-level-pill pivot" title="Classical Pivot Point">
+              <span className="tech-level-pill pivot" title="Classical Central Pivot Point">
                 <strong>Pivot:</strong> ${liveMetrics.pivots.pivot} {pivotDist && `(${pivotDist}%)`}
               </span>
               <span className="tech-level-pill resistance" title="Classical Immediate Resistance 1">
@@ -1297,39 +1305,15 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
             </>
           )}
 
-          {liveMetrics.fibs && indicators.fibonacci && (
-            <span className="tech-level-pill fib" title="Key Fibonacci 61.8% Golden Ratio">
-              <strong>Fib 61.8%:</strong> ${liveMetrics.fibs.f618}
-            </span>
-          )}
-
-          {priceLines.length > 0 && (
-            <span
-              style={{
-                fontSize: '0.7rem',
-                color: 'var(--color-accent-bright)',
-                background: 'rgba(59, 130, 246, 0.1)',
-                padding: '2px 8px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-              }}
-            >
-              📌 {priceLines.length} Custom Level{priceLines.length > 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-
-        {/* Right: RSI status & Overall Technical Bias Badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          {/* RSI Gauge */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem' }}>
-            <Gauge size={13} color="var(--color-accent-bright)" />
-            <span style={{ color: 'var(--color-text-secondary)' }}>RSI ({params.rsiPeriod}):</span>
+          {/* RSI Status */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem' }}>
+            <Gauge size={14} color="var(--color-accent-bright)" />
+            <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>RSI:</span>
             <span
               style={{
                 fontWeight: 700,
-                padding: '1px 6px',
-                borderRadius: 3,
+                padding: '2px 7px',
+                borderRadius: 4,
                 fontFamily: 'var(--font-mono)',
                 background:
                   liveMetrics.rsiStatus === 'OVERSOLD'
@@ -1350,13 +1334,12 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
           </div>
 
           {/* Technical Bias Badge */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem' }}>
-            <Sparkles size={13} color="var(--color-accent-bright)" />
-            <span style={{ color: 'var(--color-text-secondary)' }}>Bias:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem' }}>
+            <Sparkles size={14} color="var(--color-accent-bright)" />
             <span
               style={{
                 fontWeight: 700,
-                padding: '2px 8px',
+                padding: '2px 9px',
                 borderRadius: 'var(--radius-sm)',
                 letterSpacing: '0.03em',
                 background:
@@ -1510,23 +1493,27 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '14px 18px',
+                  padding: '16px 20px',
                   borderBottom: '1px solid var(--color-border)',
+                  background: 'rgba(13, 18, 32, 0.9)',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <SlidersHorizontal size={16} color="var(--color-accent-bright)" />
-                  <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text-primary)' }}>
-                    Chart Tools & Parameters
+                  <SlidersHorizontal size={18} color="var(--color-accent-bright)" />
+                  <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#ffffff' }}>
+                    Technical Chart Settings
                   </span>
                 </div>
                 <button
                   onClick={() => setDrawerOpen(false)}
                   style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--color-text-muted)',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: 4,
+                    color: '#ffffff',
+                    padding: 4,
                     cursor: 'pointer',
+                    display: 'flex',
                   }}
                 >
                   <X size={18} />
@@ -1534,7 +1521,7 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
               </div>
 
               {/* Drawer Tabs */}
-              <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)' }}>
+              <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', background: 'rgba(0,0,0,0.2)' }}>
                 <button
                   className={`drawer-tab-btn ${drawerTab === 'params' ? 'active' : ''}`}
                   onClick={() => setDrawerTab('params')}
@@ -1562,17 +1549,49 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
               </div>
 
               {/* Drawer Body Content */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px' }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
                 {/* TAB 1: PARAMETERS */}
                 {drawerTab === 'params' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    {/* Quick Strategy Presets */}
                     <div>
-                      <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 10 }}>
+                      <label style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-secondary)', marginBottom: 8, display: 'block' }}>
+                        Quick Presets
+                      </label>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => setParams({ smaFast: 20, smaSlow: 50, emaFast: 9, emaSlow: 21, bbPeriod: 20, bbStd: 2.0, rsiPeriod: 14 })}
+                          className="btn btn-secondary"
+                          style={{ fontSize: '0.72rem', padding: '4px 8px' }}
+                        >
+                          Standard (20/50)
+                        </button>
+                        <button
+                          onClick={() => setParams({ smaFast: 10, smaSlow: 30, emaFast: 8, emaSlow: 20, bbPeriod: 15, bbStd: 1.5, rsiPeriod: 9 })}
+                          className="btn btn-secondary"
+                          style={{ fontSize: '0.72rem', padding: '4px 8px' }}
+                        >
+                          Fast Scalp (9/20)
+                        </button>
+                        <button
+                          onClick={() => setParams({ smaFast: 50, smaSlow: 200, emaFast: 20, emaSlow: 50, bbPeriod: 20, bbStd: 2.5, rsiPeriod: 21 })}
+                          className="btn btn-secondary"
+                          style={{ fontSize: '0.72rem', padding: '4px 8px' }}
+                        >
+                          Swing (50/200)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Section 1: Moving Averages */}
+                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: 14, borderRadius: 'var(--radius-md)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                      <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#00d2ff' }} />
                         Moving Average Lengths
                       </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <div>
-                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>SMA Fast Period</label>
+                          <label style={{ fontSize: '0.72rem', color: '#00d2ff', fontWeight: 600, display: 'block', marginBottom: 4 }}>SMA Fast (bars)</label>
                           <input
                             type="number"
                             min="5"
@@ -1580,11 +1599,11 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                             value={params.smaFast}
                             onChange={(e) => setParams((p) => ({ ...p, smaFast: parseInt(e.target.value) || 20 }))}
                             className="input"
-                            style={{ marginTop: 4, padding: '6px 8px', fontSize: '0.78rem' }}
+                            style={{ width: '100%', padding: '8px 10px', fontSize: '0.85rem', background: '#0f172a', border: '1px solid #334155', color: '#ffffff', fontWeight: 600 }}
                           />
                         </div>
                         <div>
-                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>SMA Slow Period</label>
+                          <label style={{ fontSize: '0.72rem', color: '#ffb703', fontWeight: 600, display: 'block', marginBottom: 4 }}>SMA Slow (bars)</label>
                           <input
                             type="number"
                             min="10"
@@ -1592,11 +1611,11 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                             value={params.smaSlow}
                             onChange={(e) => setParams((p) => ({ ...p, smaSlow: parseInt(e.target.value) || 50 }))}
                             className="input"
-                            style={{ marginTop: 4, padding: '6px 8px', fontSize: '0.78rem' }}
+                            style={{ width: '100%', padding: '8px 10px', fontSize: '0.85rem', background: '#0f172a', border: '1px solid #334155', color: '#ffffff', fontWeight: 600 }}
                           />
                         </div>
                         <div>
-                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>EMA Fast Period</label>
+                          <label style={{ fontSize: '0.72rem', color: '#e879f9', fontWeight: 600, display: 'block', marginBottom: 4 }}>EMA Fast (bars)</label>
                           <input
                             type="number"
                             min="5"
@@ -1604,11 +1623,11 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                             value={params.emaFast}
                             onChange={(e) => setParams((p) => ({ ...p, emaFast: parseInt(e.target.value) || 9 }))}
                             className="input"
-                            style={{ marginTop: 4, padding: '6px 8px', fontSize: '0.78rem' }}
+                            style={{ width: '100%', padding: '8px 10px', fontSize: '0.85rem', background: '#0f172a', border: '1px solid #334155', color: '#ffffff', fontWeight: 600 }}
                           />
                         </div>
                         <div>
-                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>EMA Slow Period</label>
+                          <label style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 600, display: 'block', marginBottom: 4 }}>EMA Slow (bars)</label>
                           <input
                             type="number"
                             min="10"
@@ -1616,19 +1635,21 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                             value={params.emaSlow}
                             onChange={(e) => setParams((p) => ({ ...p, emaSlow: parseInt(e.target.value) || 21 }))}
                             className="input"
-                            style={{ marginTop: 4, padding: '6px 8px', fontSize: '0.78rem' }}
+                            style={{ width: '100%', padding: '8px 10px', fontSize: '0.85rem', background: '#0f172a', border: '1px solid #334155', color: '#ffffff', fontWeight: 600 }}
                           />
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: 14 }}>
-                      <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 10 }}>
+                    {/* Section 2: Volatility & Oscillators */}
+                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: 14, borderRadius: 'var(--radius-md)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                      <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#38bdf8' }} />
                         Volatility & Oscillators
                       </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <div>
-                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>Bollinger Period</label>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', display: 'block', marginBottom: 4 }}>Bollinger Period</label>
                           <input
                             type="number"
                             min="10"
@@ -1636,11 +1657,11 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                             value={params.bbPeriod}
                             onChange={(e) => setParams((p) => ({ ...p, bbPeriod: parseInt(e.target.value) || 20 }))}
                             className="input"
-                            style={{ marginTop: 4, padding: '6px 8px', fontSize: '0.78rem' }}
+                            style={{ width: '100%', padding: '8px 10px', fontSize: '0.85rem', background: '#0f172a', border: '1px solid #334155', color: '#ffffff', fontWeight: 600 }}
                           />
                         </div>
                         <div>
-                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>BB StdDev Multiplier</label>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', display: 'block', marginBottom: 4 }}>BB StdDev Multiplier</label>
                           <input
                             type="number"
                             step="0.5"
@@ -1649,11 +1670,11 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                             value={params.bbStd}
                             onChange={(e) => setParams((p) => ({ ...p, bbStd: parseFloat(e.target.value) || 2.0 }))}
                             className="input"
-                            style={{ marginTop: 4, padding: '6px 8px', fontSize: '0.78rem' }}
+                            style={{ width: '100%', padding: '8px 10px', fontSize: '0.85rem', background: '#0f172a', border: '1px solid #334155', color: '#ffffff', fontWeight: 600 }}
                           />
                         </div>
-                        <div>
-                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>RSI Length</label>
+                        <div style={{ gridColumn: 'span 2' }}>
+                          <label style={{ fontSize: '0.72rem', color: '#c084fc', fontWeight: 600, display: 'block', marginBottom: 4 }}>RSI Lookback Period</label>
                           <input
                             type="number"
                             min="5"
@@ -1661,10 +1682,28 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                             value={params.rsiPeriod}
                             onChange={(e) => setParams((p) => ({ ...p, rsiPeriod: parseInt(e.target.value) || 14 }))}
                             className="input"
-                            style={{ marginTop: 4, padding: '6px 8px', fontSize: '0.78rem' }}
+                            style={{ width: '100%', padding: '8px 10px', fontSize: '0.85rem', background: '#0f172a', border: '1px solid #334155', color: '#ffffff', fontWeight: 600 }}
                           />
                         </div>
                       </div>
+                    </div>
+
+                    {/* Drawer Footer Actions */}
+                    <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                      <button
+                        onClick={() => setParams({ smaFast: 20, smaSlow: 50, emaFast: 9, emaSlow: 21, bbPeriod: 20, bbStd: 2.0, rsiPeriod: 14 })}
+                        className="btn btn-secondary"
+                        style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem' }}
+                      >
+                        Reset Defaults
+                      </button>
+                      <button
+                        onClick={() => setDrawerOpen(false)}
+                        className="btn btn-primary"
+                        style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem', fontWeight: 700 }}
+                      >
+                        Apply & Close
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1672,11 +1711,11 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                 {/* TAB 2: CUSTOM ANNOTATIONS */}
                 {drawerTab === 'lines' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: 12, borderRadius: 'var(--radius-md)' }}>
-                      <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 8 }}>
-                        Add Custom Price Line
+                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: 14, borderRadius: 'var(--radius-md)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                      <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff', marginBottom: 10 }}>
+                        Add Custom Price Level Line
                       </p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <input
                           type="number"
                           step="0.01"
@@ -1684,7 +1723,7 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                           value={newLinePrice}
                           onChange={(e) => setNewLinePrice(e.target.value)}
                           className="input"
-                          style={{ padding: '6px 10px', fontSize: '0.78rem' }}
+                          style={{ padding: '8px 10px', fontSize: '0.85rem', background: '#0f172a', border: '1px solid #334155', color: '#ffffff' }}
                         />
                         <input
                           type="text"
@@ -1692,21 +1731,21 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                           value={newLineLabel}
                           onChange={(e) => setNewLineLabel(e.target.value)}
                           className="input"
-                          style={{ padding: '6px 10px', fontSize: '0.78rem' }}
+                          style={{ padding: '8px 10px', fontSize: '0.85rem', background: '#0f172a', border: '1px solid #334155', color: '#ffffff' }}
                         />
                         <div style={{ display: 'flex', gap: 8 }}>
                           <select
                             value={newLineColor}
                             onChange={(e) => setNewLineColor(e.target.value)}
                             className="input"
-                            style={{ padding: '6px 10px', fontSize: '0.78rem', flex: 1 }}
+                            style={{ padding: '8px 10px', fontSize: '0.82rem', flex: 1, background: '#0f172a', border: '1px solid #334155', color: '#ffffff' }}
                           >
                             <option value="#ef4444" style={{ background: '#0f172a' }}>🔴 Resistance / Stop Loss</option>
                             <option value="#10b981" style={{ background: '#0f172a' }}>🟢 Support / Take Profit</option>
                             <option value="#3b82f6" style={{ background: '#0f172a' }}>🔵 Entry Zone</option>
                             <option value="#f59e0b" style={{ background: '#0f172a' }}>🟠 Pivot / Target</option>
                           </select>
-                          <button onClick={addPriceLine} className="btn btn-primary" style={{ padding: '6px 14px', fontSize: '0.78rem' }}>
+                          <button onClick={addPriceLine} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.82rem', fontWeight: 700 }}>
                             <Plus size={14} /> Add
                           </button>
                         </div>
@@ -1715,9 +1754,9 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
 
                     {/* Active Lines List */}
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
-                          Active Price Lines ({priceLines.length})
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#ffffff' }}>
+                          Active Custom Lines ({priceLines.length})
                         </span>
                         {priceLines.length > 0 && (
                           <button
@@ -1726,8 +1765,9 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                               background: 'transparent',
                               border: 'none',
                               color: 'var(--color-danger)',
-                              fontSize: '0.7rem',
+                              fontSize: '0.75rem',
                               cursor: 'pointer',
+                              fontWeight: 600,
                             }}
                           >
                             Clear All
@@ -1736,11 +1776,11 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                       </div>
 
                       {priceLines.length === 0 ? (
-                        <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
                           No custom price lines added yet. Add a level above or receive them automatically from AI Advisor analysis.
                         </p>
                       ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                           {priceLines.map((l) => (
                             <div
                               key={l.id}
@@ -1748,21 +1788,21 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                padding: '6px 10px',
+                                padding: '8px 12px',
                                 borderRadius: 'var(--radius-sm)',
                                 background: 'rgba(255, 255, 255, 0.04)',
-                                border: `1px solid ${l.color}44`,
+                                border: `1px solid ${l.color}66`,
                               }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: l.color }} />
-                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fff' }}>{l.label}</span>
-                                <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: l.color }}>
+                                <span style={{ width: 10, height: 10, borderRadius: '50%', background: l.color }} />
+                                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff' }}>{l.label}</span>
+                                <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-mono)', color: l.color, fontWeight: 700 }}>
                                   ${l.price.toFixed(2)}
                                 </span>
                               </div>
                               <Trash2
-                                size={13}
+                                size={15}
                                 onClick={() => removePriceLine(l.id)}
                                 style={{ cursor: 'pointer', color: 'var(--color-text-muted)' }}
                               />
@@ -1778,55 +1818,54 @@ export function TradingViewChart({ ticker, height = 460 }: TradingViewChartProps
                 {drawerTab === 'levels' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     {liveMetrics.pivots && (
-                      <div>
-                        <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 8 }}>
-                          Classical Support & Resistance
+                      <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: 14, borderRadius: 'var(--radius-md)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff', marginBottom: 10 }}>
+                          Classical Support & Resistance Levels
                         </p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f43f5e' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f43f5e', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                             <span>Resistance 2 (R2):</span> <strong>${liveMetrics.pivots.r2}</strong>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ef4444' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ef4444', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                             <span>Resistance 1 (R1):</span> <strong>${liveMetrics.pivots.r1}</strong>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#60a5fa' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#60a5fa', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                             <span>Central Pivot (P):</span> <strong>${liveMetrics.pivots.pivot}</strong>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#34d399' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#34d399', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                             <span>Support 1 (S1):</span> <strong>${liveMetrics.pivots.s1}</strong>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#059669' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#059669', padding: '4px 0' }}>
                             <span>Support 2 (S2):</span> <strong>${liveMetrics.pivots.s2}</strong>
                           </div>
                         </div>
                       </div>
                     )}
-
                     {liveMetrics.fibs && (
-                      <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: 12 }}>
-                        <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 8 }}>
+                      <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: 14, borderRadius: 'var(--radius-md)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff', marginBottom: 10 }}>
                           Fibonacci Retracement Grid
                         </p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                             <span>100.0% (Swing High):</span> <strong>${liveMetrics.fibs.f100}</strong>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                             <span>78.6% Retracement:</span> <strong>${liveMetrics.fibs.f786}</strong>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#c084fc' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#c084fc', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                             <span>61.8% Golden Ratio:</span> <strong>${liveMetrics.fibs.f618}</strong>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#eab308' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#eab308', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                             <span>50.0% Equilibrium:</span> <strong>${liveMetrics.fibs.f500}</strong>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38bdf8' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38bdf8', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                             <span>38.2% Retracement:</span> <strong>${liveMetrics.fibs.f382}</strong>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#22d3ee' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#22d3ee', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                             <span>23.6% Retracement:</span> <strong>${liveMetrics.fibs.f236}</strong>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', padding: '4px 0' }}>
                             <span>0.0% (Swing Low):</span> <strong>${liveMetrics.fibs.f0}</strong>
                           </div>
                         </div>

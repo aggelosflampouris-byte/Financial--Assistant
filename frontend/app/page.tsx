@@ -455,100 +455,177 @@ export default function DashboardPage() {
         />
       )}
 
+      {/* === ACCESSIBLE SKIP LINK === */}
+      <a
+        href="#main-content"
+        className="sr-only"
+        style={{
+          position: 'absolute',
+          top: 8,
+          left: 8,
+          zIndex: 1000,
+          background: 'var(--color-accent-primary)',
+          color: '#fff',
+          padding: '8px 16px',
+          borderRadius: 4,
+          fontWeight: 600,
+        }}
+      >
+        Skip to main content
+      </a>
+
       {/* === HEADER === */}
-      <header className="glass" style={{
-        position: 'sticky', top: 0, zIndex: 100,
-        padding: '0 32px',
-        height: 64,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid var(--color-border)',
-      }}>
+      <header
+        role="banner"
+        className="glass"
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+          padding: '0 24px',
+          minHeight: 64,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 12,
+          borderBottom: '1px solid var(--color-border)',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 32, height: 32,
-            background: 'var(--color-accent-gradient)',
-            borderRadius: 'var(--radius-md)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              background: 'var(--color-accent-gradient)',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             <BarChart3 size={18} color="white" />
           </div>
-          <span style={{ fontWeight: 700, fontSize: '1rem' }}>Financial Assistant</span>
-          <span className="badge badge-info">ENTERPRISE</span>
+          <div>
+            <h1 style={{ fontWeight: 700, fontSize: '0.95rem', margin: 0, color: '#fff' }}>
+              Apex Financial Assistant
+            </h1>
+            <p style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', margin: 0 }}>
+              Institutional Quantitative Execution & Research
+            </p>
+          </div>
         </div>
 
-        {/* Center/Right: User's Fixed Portfolio Capital */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            background: 'rgba(16, 185, 129, 0.08)',
-            border: '1px solid rgba(16, 185, 129, 0.25)',
-            padding: '5px 14px',
-            borderRadius: 'var(--radius-md)',
-          }}>
-            <div style={{
-              width: 26, height: 26,
-              borderRadius: '50%',
-              background: 'rgba(16, 185, 129, 0.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--color-success)',
-            }}>
-              <Wallet size={14} />
+        {/* Center/Right: User's Fixed Portfolio Capital & Active Ticker */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {/* Active Asset Pill */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: 'rgba(59, 130, 246, 0.08)',
+              border: '1px solid rgba(59, 130, 246, 0.25)',
+              padding: '4px 12px',
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Active Asset:</span>
+            <strong style={{ fontSize: '0.85rem', color: 'var(--color-accent-bright)' }}>{selectedTicker}</strong>
+            {ticks[selectedTicker] && (
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: '#fff' }}>
+                ${ticks[selectedTicker].price.toFixed(2)}
+              </span>
+            )}
+          </div>
+
+          {/* Fixed $100k Capital Badge */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: 'rgba(16, 185, 129, 0.08)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              padding: '4px 12px',
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            <div
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: '50%',
+                background: 'rgba(16, 185, 129, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--color-success)',
+              }}
+            >
+              <Wallet size={12} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                Portfolio Capital
+              <span style={{ fontSize: '0.62rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                Fixed Capital
               </span>
-              <span style={{ fontSize: '0.95rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-success)' }}>
+              <span style={{ fontSize: '0.88rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-success)' }}>
                 ${capital.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span className="live-indicator pulsing">LIVE</span>
-            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              MiFID II Compliant
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="live-indicator pulsing" aria-label="Real-time live market feed active">LIVE</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>MiFID II</span>
           </div>
         </div>
       </header>
 
-      {/* === MAIN GRID === */}
-      <main style={{ padding: '24px 32px', maxWidth: 1600, margin: '0 auto' }}>
+      {/* === MAIN DASHBOARD === */}
+      <main id="main-content" className="dashboard-main" tabIndex={-1}>
 
-        {/* === TICKER BAR === */}
-        <div style={{
-          display: 'flex', gap: 8, marginBottom: 24, overflowX: 'auto',
-          paddingBottom: 4,
-        }}>
+        {/* === TICKER NAVIGATION STRIP === */}
+        <nav role="navigation" aria-label="Watchlist asset selector" className="ticker-strip">
           {DEFAULT_TICKERS.map((t) => {
             const tick = ticks[t];
             const isPositive = (tick?.changePct ?? 0) >= 0;
+            const isSelected = selectedTicker === t;
             return (
               <button
                 key={t}
                 onClick={() => setSelectedTicker(t)}
+                aria-pressed={isSelected}
                 style={{
-                  background: selectedTicker === t ? 'var(--color-bg-elevated)' : 'transparent',
-                  border: `1px solid ${selectedTicker === t ? 'var(--color-accent-primary)' : 'var(--color-border)'}`,
+                  background: isSelected ? 'var(--color-bg-elevated)' : 'rgba(255, 255, 255, 0.02)',
+                  border: `1px solid ${isSelected ? 'var(--color-accent-primary)' : 'var(--color-border)'}`,
                   borderRadius: 'var(--radius-md)',
-                  padding: '8px 16px',
+                  padding: '8px 14px',
                   cursor: 'pointer',
-                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
-                  minWidth: 100,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: 2,
+                  minWidth: 105,
                   transition: 'all var(--transition-fast)',
                 }}
               >
-                <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--color-text-primary)' }}>{t}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.85rem', color: isSelected ? 'var(--color-accent-bright)' : '#fff' }}>
+                    {t}
+                  </span>
+                  {isSelected && (
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-accent-bright)' }} />
+                  )}
+                </div>
                 {tick ? (
                   <>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--color-text-primary)' }}>
                       ${tick.price.toFixed(2)}
                     </span>
                     <span style={{
-                      fontSize: '0.7rem', fontWeight: 600,
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
                       color: isPositive ? 'var(--color-success)' : 'var(--color-danger)',
                     }}>
                       {isPositive ? '+' : ''}{(tick.changePct * 100).toFixed(2)}%
@@ -560,23 +637,23 @@ export default function DashboardPage() {
               </button>
             );
           })}
-        </div>
+        </nav>
 
-        {/* === TWO-COLUMN LAYOUT === */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 24, alignItems: 'start' }}>
+        {/* === RESPONSIVE 2-COLUMN GRID === */}
+        <div className="dashboard-grid">
 
-          {/* === LEFT COLUMN === */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* === LEFT COLUMN: CHART & WORKSPACE STUDIOS === */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-            {/* Chart */}
-            <div className="card" style={{ overflow: 'hidden' }}>
+            {/* Interactive Chart Canvas */}
+            <section aria-label="Technical Candlestick Chart" className="card" style={{ overflow: 'hidden' }}>
               <TradingViewChart ticker={selectedTicker} height={460} />
-            </div>
+            </section>
 
-            {/* Metrics grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+            {/* Essential Portfolio Metrics */}
+            <section aria-label="Quantitative Risk & Return Metrics" className="metrics-row">
               <MetricCard
-                label="Portfolio Capital"
+                label="Portfolio NAV"
                 value={`$${capital.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 sub="100% Cash / NAV · Fixed"
                 icon={Wallet}
@@ -586,7 +663,7 @@ export default function DashboardPage() {
               <MetricCard
                 label="Sharpe Ratio"
                 value={formatNum(metrics?.sharpeRatio)}
-                sub="Risk-adjusted return"
+                sub="Risk-adjusted alpha"
                 icon={TrendingUp}
                 positive={(metrics?.sharpeRatio ?? 0) > 1}
                 loading={metricsLoading}
@@ -594,7 +671,7 @@ export default function DashboardPage() {
               <MetricCard
                 label="Sortino Ratio"
                 value={formatNum(metrics?.sortinoRatio)}
-                sub="Downside risk-adjusted"
+                sub="Downside risk protection"
                 icon={Shield}
                 positive={(metrics?.sortinoRatio ?? 0) > 1}
                 loading={metricsLoading}
@@ -602,273 +679,133 @@ export default function DashboardPage() {
               <MetricCard
                 label="Max Drawdown"
                 value={formatPct(metrics?.maxDrawdown)}
-                sub="Peak-to-trough loss"
+                sub="Peak-to-trough risk"
                 icon={TrendingDown}
                 positive={false}
                 loading={metricsLoading}
               />
               <MetricCard
-                label="CAGR"
+                label="CAGR (1Y)"
                 value={formatPct(metrics?.cagr)}
-                sub="Compound annual growth"
+                sub="Compounded growth"
                 icon={TrendingUp}
                 positive={(metrics?.cagr ?? 0) > 0}
                 loading={metricsLoading}
               />
               <MetricCard
-                label="VaR 95% (1d)"
+                label="1D 95% VaR"
                 value={metrics?.var95 ? `$${((metrics.var95.varPct || 0.0189) * capital).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${(capital * 0.0189).toFixed(2)}`}
-                sub={metrics?.var95 ? `${(metrics.var95.varPct * 100).toFixed(2)}% of $100k NAV` : '1.89% of NAV'}
+                sub={metrics?.var95 ? `${(metrics.var95.varPct * 100).toFixed(2)}% boundary` : '1.89% boundary'}
                 icon={AlertCircle}
                 positive={false}
                 loading={metricsLoading}
               />
+            </section>
+
+            {/* Workspace Studio Navigation Tabs */}
+            <div
+              role="tablist"
+              aria-label="Institutional Analysis Modules"
+              className="tab-nav-bar"
+            >
+              {[
+                { id: 'holdings', label: '$100k Portfolio', icon: PieChart },
+                { id: 'trading', label: 'Trade OMS', icon: Send },
+                { id: 'risk', label: 'Quant Risk Studio', icon: Activity },
+                { id: 'fundamentals', label: 'Fundamentals (10-K)', icon: Building2 },
+                { id: 'news', label: 'News & Sentiment', icon: Newspaper },
+                { id: 'documents', label: 'Documents & RAG', icon: UploadCloud },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isActive = dashboardTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    role="tab"
+                    id={`tab-${tab.id}`}
+                    aria-selected={isActive}
+                    aria-controls={`tabpanel-${tab.id}`}
+                    onClick={() => setDashboardTab(tab.id as typeof dashboardTab)}
+                    className={`btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{
+                      fontSize: '0.74rem',
+                      padding: '6px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                    }}
+                  >
+                    <Icon size={13} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* === LOWER DASHBOARD SUITE: INSTITUTIONAL VIEW SELECTOR TABS === */}
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: -4 }}>
-              <button
-                onClick={() => setDashboardTab('holdings')}
-                className={`btn ${dashboardTab === 'holdings' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
-              >
-                <PieChart size={13} />
-                <span>$100k Portfolio & What-If</span>
-              </button>
+            {/* Active Studio Content Panel */}
+            <div role="tabpanel" id={`tabpanel-${dashboardTab}`} aria-labelledby={`tab-${dashboardTab}`}>
+              {dashboardTab === 'holdings' && (
+                <PortfolioAllocationView
+                  onSelectTicker={(t) => setSelectedTicker(t)}
+                  onSendChatQuery={(q) => sendMessage(q)}
+                />
+              )}
 
-              <button
-                onClick={() => setDashboardTab('trading')}
-                className={`btn ${dashboardTab === 'trading' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
-              >
-                <Send size={13} />
-                <span>Trade Ticket & OMS</span>
-              </button>
+              {dashboardTab === 'trading' && (
+                <OrderManagementTicket
+                  activeTicker={selectedTicker}
+                  onSelectTicker={(t) => setSelectedTicker(t)}
+                  onSendChatQuery={(q) => sendMessage(q)}
+                />
+              )}
 
-              <button
-                onClick={() => setDashboardTab('risk')}
-                className={`btn ${dashboardTab === 'risk' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
-              >
-                <Activity size={13} />
-                <span>Quant Risk & Stress Studio</span>
-              </button>
+              {dashboardTab === 'risk' && (
+                <QuantRiskStudio />
+              )}
 
-              <button
-                onClick={() => setDashboardTab('fundamentals')}
-                className={`btn ${dashboardTab === 'fundamentals' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
-              >
-                <Building2 size={13} />
-                <span>Fundamentals & 10-K</span>
-              </button>
+              {dashboardTab === 'fundamentals' && (
+                <FundamentalsStudio
+                  ticker={selectedTicker}
+                  onSendChatQuery={(q) => sendMessage(q)}
+                />
+              )}
 
-              <button
-                onClick={() => setDashboardTab('news')}
-                className={`btn ${dashboardTab === 'news' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
-              >
-                <Newspaper size={13} />
-                <span>News & AI Sentiment</span>
-              </button>
+              {dashboardTab === 'news' && (
+                <MarketNewsWire
+                  activeTicker={selectedTicker}
+                  onSelectTicker={(t) => setSelectedTicker(t)}
+                  onSendChatQuery={(q) => sendMessage(q)}
+                />
+              )}
 
-              <button
-                onClick={() => setDashboardTab('documents')}
-                className={`btn ${dashboardTab === 'documents' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
-              >
-                <UploadCloud size={13} />
-                <span>Documents & RAG</span>
-              </button>
+              {dashboardTab === 'documents' && (
+                <DocumentAttachmentStudio
+                  onSendChatQuery={(q) => sendMessage(q)}
+                />
+              )}
 
-              <button
-                onClick={() => setDashboardTab('alerts')}
-                className={`btn ${dashboardTab === 'alerts' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
-              >
-                <Bell size={13} />
-                <span>Signals & Alerts</span>
-              </button>
-
-              <button
-                onClick={() => setDashboardTab('watchlist')}
-                className={`btn ${dashboardTab === 'watchlist' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.74rem', padding: '5px 12px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 5 }}
-              >
-                <Layers size={13} />
-                <span>Market Watchlist</span>
-              </button>
+              {dashboardTab === 'alerts' && (
+                <AlertsNotificationManager
+                  onSelectTicker={(t) => setSelectedTicker(t)}
+                  onSendChatQuery={(q) => sendMessage(q)}
+                />
+              )}
             </div>
-
-            {dashboardTab === 'holdings' && (
-              <PortfolioAllocationView
-                onSelectTicker={(t) => setSelectedTicker(t)}
-                onSendChatQuery={(q) => sendMessage(q)}
-              />
-            )}
-
-            {dashboardTab === 'trading' && (
-              <OrderManagementTicket
-                activeTicker={selectedTicker}
-                onSelectTicker={(t) => setSelectedTicker(t)}
-                onSendChatQuery={(q) => sendMessage(q)}
-              />
-            )}
-
-            {dashboardTab === 'risk' && (
-              <QuantRiskStudio />
-            )}
-
-            {dashboardTab === 'fundamentals' && (
-              <FundamentalsStudio
-                ticker={selectedTicker}
-                onSendChatQuery={(q) => sendMessage(q)}
-              />
-            )}
-
-            {dashboardTab === 'news' && (
-              <MarketNewsWire
-                activeTicker={selectedTicker}
-                onSelectTicker={(t) => setSelectedTicker(t)}
-                onSendChatQuery={(q) => sendMessage(q)}
-              />
-            )}
-
-            {dashboardTab === 'documents' && (
-              <DocumentAttachmentStudio
-                onSendChatQuery={(q) => sendMessage(q)}
-              />
-            )}
-
-            {dashboardTab === 'alerts' && (
-              <AlertsNotificationManager
-                onSelectTicker={(t) => setSelectedTicker(t)}
-                onSendChatQuery={(q) => sendMessage(q)}
-              />
-            )}
-
-            {dashboardTab === 'watchlist' && (
-              /* Comprehensive Market Watchlist & Technical Overview Table */
-              <div className="card" style={{ padding: '16px 20px', overflowX: 'auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Activity size={16} color="var(--color-accent-bright)" />
-                    <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
-                      Watchlist & Technical Analytics
-                    </h3>
-                  </div>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
-                    Click column headers to sort · Click row to load chart
-                  </span>
-                </div>
-
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', color: 'var(--color-text-muted)', textAlign: 'left' }}>
-                    <th style={{ padding: '8px 10px', cursor: 'pointer' }} onClick={() => toggleSort('ticker')}>
-                      Asset {sortField === 'ticker' ? (sortAsc ? '▲' : '▼') : ''}
-                    </th>
-                    <th style={{ padding: '8px 10px', cursor: 'pointer' }} onClick={() => toggleSort('price')}>
-                      Price {sortField === 'price' ? (sortAsc ? '▲' : '▼') : ''}
-                    </th>
-                    <th style={{ padding: '8px 10px', cursor: 'pointer' }} onClick={() => toggleSort('changePct')}>
-                      24h Change {sortField === 'changePct' ? (sortAsc ? '▲' : '▼') : ''}
-                    </th>
-                    <th style={{ padding: '8px 10px' }}>Active Chart</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'right' }}>Quick Analysis</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedTickers.map((sym) => {
-                    const t = ticks[sym];
-                    const isPos = (t?.changePct ?? 0) >= 0;
-                    const isSelected = selectedTicker === sym;
-
-                    return (
-                      <tr
-                        key={sym}
-                        onClick={() => setSelectedTicker(sym)}
-                        style={{
-                          borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-                          background: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'transparent',
-                          cursor: 'pointer',
-                          transition: 'background 0.15s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isSelected) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isSelected) e.currentTarget.style.background = 'transparent';
-                        }}
-                      >
-                        <td style={{ padding: '10px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <strong style={{ color: isSelected ? 'var(--color-accent-bright)' : '#fff', fontWeight: 600 }}>
-                              {sym}
-                            </strong>
-                            <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>
-                              {ASSET_NAMES[sym] || sym}
-                            </span>
-                          </div>
-                        </td>
-                        <td style={{ padding: '10px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#fff' }}>
-                          {t ? `$${t.price.toFixed(2)}` : '—'}
-                        </td>
-                        <td style={{ padding: '10px' }}>
-                          {t ? (
-                            <span style={{
-                              color: isPos ? 'var(--color-success)' : 'var(--color-danger)',
-                              fontWeight: 600,
-                            }}>
-                              {isPos ? '+' : ''}{(t.changePct * 100).toFixed(2)}%
-                            </span>
-                          ) : '—'}
-                        </td>
-                        <td style={{ padding: '10px' }}>
-                          {isSelected ? (
-                            <span style={{
-                              padding: '2px 8px',
-                              borderRadius: 4,
-                              background: 'rgba(59, 130, 246, 0.2)',
-                              color: 'var(--color-accent-bright)',
-                              fontSize: '0.7rem',
-                              fontWeight: 600,
-                            }}>
-                              Active
-                            </span>
-                          ) : (
-                            <span style={{ color: 'var(--color-text-muted)', fontSize: '0.7rem' }}>
-                              Select
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ padding: '10px', textAlign: 'right' }}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedTicker(sym);
-                              setChatInput(`Analyze technical indicators, momentum, and statistical levels for ${sym}`);
-                            }}
-                            className="btn btn-secondary"
-                            style={{ padding: '3px 8px', fontSize: '0.7rem' }}
-                          >
-                            Analyze
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            )}
           </div>
 
-          {/* === RIGHT COLUMN — AI ADVISOR CHAT === */}
-          <div className="card" style={{
-            display: 'flex', flexDirection: 'column',
-            height: 780, overflow: 'hidden',
-          }}>
+          {/* === RIGHT COLUMN — AI RESEARCH ADVISOR CHAT === */}
+          <div
+            role="complementary"
+            aria-label="AI Quantitative Research Advisor"
+            className="card chat-panel"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              height: 780,
+              overflow: 'hidden',
+            }}
+          >
             {/* Chat header */}
             <div style={{
               padding: '12px 18px',

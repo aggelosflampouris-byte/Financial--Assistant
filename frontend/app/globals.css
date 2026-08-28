@@ -379,3 +379,187 @@ body::before {
   border-top: 1px solid var(--color-border);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
+
+/* =============================================================================
+   CHART TECHNICAL VISUALIZATION & HUD STYLES
+   ============================================================================= */
+
+/* Floating Heads-Up Display */
+.chart-hud {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  z-index: 10;
+  pointer-events: none;
+  background: rgba(13, 18, 32, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(99, 131, 195, 0.22);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  transition: opacity var(--transition-fast);
+  max-width: 95%;
+}
+
+.chart-hud-ohlcv {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.chart-hud-indicators {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+}
+
+/* Indicator Quick-Toggle Pills */
+.indicator-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(99, 131, 195, 0.2);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.indicator-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(99, 131, 195, 0.4);
+  color: var(--color-text-primary);
+}
+
+.indicator-pill.active {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: var(--color-accent-primary);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
+}
+
+.indicator-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.indicator-pill.active .indicator-dot {
+  transform: scale(1.15);
+  box-shadow: 0 0 6px currentColor;
+}
+
+/* Technical Summary Ribbon */
+.tech-ribbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: rgba(13, 18, 32, 0.95);
+  border-bottom: 1px solid var(--color-border);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tech-level-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.tech-level-pill.support {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+.tech-level-pill.resistance {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.tech-level-pill.pivot {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+}
+
+.tech-level-pill.fib {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+}
+
+/* Settings & Annotations Drawer */
+.chart-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 11, 20, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  display: flex;
+  justify-content: flex-end;
+  animation: fadeIn var(--transition-fast);
+}
+
+.chart-drawer {
+  width: 380px;
+  max-width: 100%;
+  height: 100%;
+  background: var(--color-bg-card);
+  border-left: 1px solid var(--color-border-strong);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
+  animation: slideLeft var(--transition-normal);
+  z-index: 51;
+}
+
+@keyframes slideLeft {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+.drawer-tab-btn {
+  flex: 1;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.drawer-tab-btn.active {
+  color: var(--color-accent-bright);
+  border-bottom-color: var(--color-accent-primary);
+  background: rgba(59, 130, 246, 0.05);
+}
+

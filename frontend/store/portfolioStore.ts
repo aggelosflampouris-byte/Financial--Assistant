@@ -15,6 +15,7 @@ export interface MarketTick {
   changePct: number;
   volume: number;
   timestamp: string;
+  action?: string;
 }
 
 export interface VaRResult {
@@ -67,6 +68,10 @@ export interface HITLRequest {
 // ---------------------------------------------------------------------------
 
 interface PortfolioState {
+  // Capital & Cash
+  capital: number;
+  cash: number;
+
   // Ticks
   ticks: Record<string, MarketTick>;
   tickHistory: Record<string, MarketTick[]>;
@@ -87,6 +92,8 @@ interface PortfolioState {
   wsConnected: Record<string, boolean>;
 
   // Actions
+  setCapital: (capital: number) => void;
+  setCash: (cash: number) => void;
   updateTick: (tick: MarketTick) => void;
   setMetrics: (metrics: PortfolioMetrics) => void;
   setMetricsLoading: (loading: boolean) => void;
@@ -106,6 +113,8 @@ export const usePortfolioStore = create<PortfolioState>()(
   devtools(
     subscribeWithSelector((set, get) => ({
       // Initial state
+      capital: 100000.0,
+      cash: 100000.0,
       ticks: {},
       tickHistory: {},
       metrics: null,
@@ -117,6 +126,8 @@ export const usePortfolioStore = create<PortfolioState>()(
       wsConnected: {},
 
       // Actions
+      setCapital: (capital) => set({ capital }),
+      setCash: (cash) => set({ cash }),
       updateTick: (tick) =>
         set((state) => {
           const history = state.tickHistory[tick.ticker] ?? [];

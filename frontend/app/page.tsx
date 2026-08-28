@@ -8,9 +8,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   TrendingUp, TrendingDown, Shield, Zap, Activity,
-  BarChart3, MessageSquare, RefreshCw, AlertCircle
+  BarChart3, MessageSquare, RefreshCw, AlertCircle, Wallet, DollarSign,
+  PieChart, Sliders
 } from 'lucide-react';
 import { TradingViewChart } from '@/components/charts/TradingViewChart';
+import { PortfolioAllocationView } from '@/components/portfolio/PortfolioAllocationView';
 import { HITLConfirmationModal } from '@/components/advisor/HITLConfirmationModal';
 import { usePortfolioStore } from '@/store/portfolioStore';
 
@@ -213,6 +215,7 @@ const API_BASE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_
 export default function DashboardPage() {
   // --- State ---
   const [selectedTicker, setSelectedTicker] = useState('AAPL');
+  const [dashboardTab, setDashboardTab] = useState<'holdings' | 'watchlist'>('holdings');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -220,6 +223,8 @@ export default function DashboardPage() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // --- Zustand ---
+  const capital = usePortfolioStore((s) => s.capital);
+  const cash = usePortfolioStore((s) => s.cash);
   const metrics = usePortfolioStore((s) => s.metrics);
   const ticks = usePortfolioStore((s) => s.ticks);
   const pendingHITL = usePortfolioStore((s) => s.pendingHITL);
@@ -296,10 +301,10 @@ export default function DashboardPage() {
   }, [messages]);
 
   // --- Send chat message ---
-  const sendMessage = useCallback(async () => {
-    const text = chatInput.trim();
+  const sendMessage = useCallback(async (customMessage?: string) => {
+    const text = (typeof customMessage === 'string' ? customMessage : chatInput).trim();
     if (!text || chatLoading) return;
-    setChatInput('');
+    if (!customMessage) setChatInput('');
     setChatLoading(true);
 
     const userMsg: ChatMessage = {
@@ -471,11 +476,43 @@ export default function DashboardPage() {
           <span style={{ fontWeight: 700, fontSize: '1rem' }}>Financial Assistant</span>
           <span className="badge badge-info">ENTERPRISE</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span className="live-indicator pulsing">LIVE</span>
-          <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-            MiFID II Compliant
-          </span>
+
+        {/* Center/Right: User's Fixed Portfolio Capital */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.25)',
+            padding: '5px 14px',
+            borderRadius: 'var(--radius-md)',
+          }}>
+            <div style={{
+              width: 26, height: 26,
+              borderRadius: '50%',
+              background: 'rgba(16, 185, 129, 0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--color-success)',
+            }}>
+              <Wallet size={14} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                Portfolio Capital
+              </span>
+              <span style={{ fontSize: '0.95rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-success)' }}>
+                ${capital.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span className="live-indicator pulsing">LIVE</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+              MiFID II Compliant
+            </span>
+          </div>
         </div>
       </header>
 
@@ -534,11 +571,19 @@ export default function DashboardPage() {
 
             {/* Chart */}
             <div className="card" style={{ overflow: 'hidden' }}>
-              <TradingViewChart ticker={selectedTicker} height={360} />
+              <TradingViewChart ticker={selectedTicker} height={460} />
             </div>
 
             {/* Metrics grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+              <MetricCard
+                label="Portfolio Capital"
+                value={`$${capital.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                sub="100% Cash / NAV · Fixed"
+                icon={Wallet}
+                positive={true}
+                loading={false}
+              />
               <MetricCard
                 label="Sharpe Ratio"
                 value={formatNum(metrics?.sharpeRatio)}
@@ -572,35 +617,54 @@ export default function DashboardPage() {
                 loading={metricsLoading}
               />
               <MetricCard
-                label="Beta"
-                value={formatNum(metrics?.beta)}
-                sub={`vs ${metrics?.benchmark ?? 'SPY'}`}
-                icon={Activity}
-                loading={metricsLoading}
-              />
-              <MetricCard
                 label="VaR 95% (1d)"
-                value={metrics?.var95 ? `$${Number(metrics.var95.varAmount).toFixed(0)}` : '—'}
-                sub={metrics?.var95 ? `${(metrics.var95.varPct * 100).toFixed(2)}% of NAV` : ''}
+                value={metrics?.var95 ? `$${((metrics.var95.varPct || 0.0189) * capital).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${(capital * 0.0189).toFixed(2)}`}
+                sub={metrics?.var95 ? `${(metrics.var95.varPct * 100).toFixed(2)}% of $100k NAV` : '1.89% of NAV'}
                 icon={AlertCircle}
                 positive={false}
                 loading={metricsLoading}
               />
             </div>
 
-            {/* Comprehensive Market Watchlist & Technical Overview Table */}
-            <div className="card" style={{ padding: '16px 20px', overflowX: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Activity size={16} color="var(--color-accent-bright)" />
-                  <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
-                    Watchlist & Technical Analytics
-                  </h3>
+            {/* === LOWER DASHBOARD SUITE: TABS FOR $100K PORTFOLIO ALLOCATION & WATCHLIST === */}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: -6 }}>
+              <button
+                onClick={() => setDashboardTab('holdings')}
+                className={`btn ${dashboardTab === 'holdings' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '0.78rem', padding: '6px 14px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <PieChart size={14} />
+                <span>$100,000 Portfolio Allocation & Rebalancer</span>
+              </button>
+              <button
+                onClick={() => setDashboardTab('watchlist')}
+                className={`btn ${dashboardTab === 'watchlist' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '0.78rem', padding: '6px 14px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <Activity size={14} />
+                <span>Market Watchlist & Analytics</span>
+              </button>
+            </div>
+
+            {dashboardTab === 'holdings' ? (
+              <PortfolioAllocationView
+                onSelectTicker={(t) => setSelectedTicker(t)}
+                onSendChatQuery={(q) => sendMessage(q)}
+              />
+            ) : (
+              /* Comprehensive Market Watchlist & Technical Overview Table */
+              <div className="card" style={{ padding: '16px 20px', overflowX: 'auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Activity size={16} color="var(--color-accent-bright)" />
+                    <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                      Watchlist & Technical Analytics
+                    </h3>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
+                    Click column headers to sort · Click row to load chart
+                  </span>
                 </div>
-                <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
-                  Click column headers to sort · Click row to load chart
-                </span>
-              </div>
 
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
                 <thead>
@@ -701,6 +765,7 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             </div>
+            )}
           </div>
 
           {/* === RIGHT COLUMN — AI ADVISOR CHAT === */}
@@ -872,7 +937,7 @@ export default function DashboardPage() {
               <button
                 className="btn btn-primary"
                 id="chat-send-btn"
-                onClick={sendMessage}
+                onClick={() => sendMessage()}
                 disabled={!chatInput.trim() || chatLoading}
                 style={{ flexShrink: 0 }}
               >

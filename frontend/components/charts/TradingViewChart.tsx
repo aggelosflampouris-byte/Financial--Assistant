@@ -1,14 +1,18 @@
 /**
  * frontend/components/charts/TradingViewChart.tsx
- * Real-time TradingView Lightweight Charts v4 with:
- * - Live Timestamps & Crosshair Tooltip with OHLCV stats
- * - Timeframe selector (1D, 5D, 1M, 3M, 6M, 1Y, YTD)
- * - Chart Style switcher (Candles, Area, Line, Bars)
- * - Configurable Technical Indicator Parameters (SMA 20/50, EMA 9/21, Bollinger Bands, Volume)
- * - Live Technical Metrics Banner (RSI Gauge, MACD, Moving Average Deviations)
- * - Custom Price Level Annotator (Support, Resistance, Target, Stop-Loss lines)
- * - Bi-directional Chatbot Action Bridge (Auto-applies analysis from advisor)
- * - Snapshot export and Reset zoom tools
+ * Institutional TradingView Lightweight Charts v4 with:
+ * - Visual Line Overlays (SMA 20/50, EMA 9/21, Bollinger Bands, Volume)
+ * - Auto-Calculated Classical Pivot Levels (R2, R1, Pivot, S1, S2)
+ * - Auto-Calculated Fibonacci Retracement Levels (0% to 100%)
+ * - Supply & Demand Liquidity Zones (R1-R2 Distribution, S1-S2 Accumulation)
+ * - Candlestick & Technical Pattern Event Markers (Golden Cross, Death Cross, RSI Extremes)
+ * - Toggleable Synchronized Oscillator Sub-Panel (Wilder RSI 14 & MACD 12/26/9)
+ * - Interactive Floating Heads-Up Display (HUD) with live OHLCV and indicator values on hover
+ * - Minimalist, single-line institutional control bar with 1-click indicator pills
+ * - Key Levels & Technical Bias Summary Ribbon with distance percentages
+ * - Slide-Over Settings & Annotation Drawer (Indicator tuning, Custom levels, Quant stats)
+ * - Robust Timestamp Normalization for Daily & Intraday data
+ * - Bi-directional AI Advisor Chart Directive Bridge
  */
 'use client';
 
@@ -21,21 +25,19 @@ import {
   ColorType,
   LineStyle,
   IPriceLine,
+  SeriesMarker,
 } from 'lightweight-charts';
 import {
   SlidersHorizontal,
-  TrendingUp,
-  Eye,
-  EyeOff,
   RotateCcw,
   Camera,
   Plus,
   Trash2,
-  Clock,
-  Layers,
-  Activity,
   Gauge,
-  Zap,
+  Sparkles,
+  X,
+  Activity,
+  Layers,
 } from 'lucide-react';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { usePortfolioStore } from '@/store/portfolioStore';
@@ -47,25 +49,37 @@ import type { MarketTick } from '@/store/portfolioStore';
 
 export type ChartType = 'candlestick' | 'area' | 'line' | 'bar';
 export type Timeframe = '1D' | '5D' | '1M' | '3M' | '6M' | '1Y' | 'YTD';
+export type OscillatorView = 'none' | 'rsi' | 'macd' | 'both';
 
-interface CustomPriceLine {
+export interface CustomPriceLine {
   id: string;
   price: number;
   label: string;
   color: string;
 }
 
-interface HoverData {
-  time: string;
+export interface HoverData {
+  timeStr: string;
   open: number;
   high: number;
   low: number;
   close: number;
   volume?: number;
   changePct?: number;
+  smaFast?: number | null;
+  smaSlow?: number | null;
+  emaFast?: number | null;
+  emaSlow?: number | null;
+  bbUpper?: number | null;
+  bbMiddle?: number | null;
+  bbLower?: number | null;
+  rsiVal?: number | null;
+  macdVal?: number | null;
+  macdSig?: number | null;
+  macdHist?: number | null;
 }
 
-interface IndicatorParameters {
+export interface IndicatorParameters {
   smaFast: number;
   smaSlow: number;
   emaFast: number;
@@ -81,11 +95,55 @@ interface TradingViewChartProps {
 }
 
 // ---------------------------------------------------------------------------
-// Technical Indicator Calculations
+// Timestamp Normalizer for Lightweight Charts
 // ---------------------------------------------------------------------------
 
-function calculateSMA(data: { time: string; close: number }[], period: number) {
-  const result: { time: string; value: number }[] = [];
+function toChartTime(timestamp: string | number, isIntraday: boolean): string | number {
+  if (typeof timestamp === 'number') {
+    return timestamp > 1e11 ? Math.floor(timestamp / 1000) : timestamp;
+  }
+
+  // If intraday timeframe (1D, 5D), convert to UNIX timestamp in seconds
+  if (isIntraday || timestamp.includes('T') || timestamp.includes(':')) {
+    const d = new Date(timestamp);
+    if (!isNaN(d.getTime())) {
+      return Math.floor(d.getTime() / 1000);
+    }
+  }
+
+  // If daily/weekly and format is YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(timestamp)) {
+    return timestamp;
+  }
+
+  const d = new Date(timestamp);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().split('T')[0];
+  }
+
+  return timestamp;
+}
+
+function formatDisplayTime(time: string | number): string {
+  if (typeof time === 'number') {
+    const d = new Date(time * 1000);
+    return d.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  }
+  return String(time);
+}
+
+// ---------------------------------------------------------------------------
+// Pure Technical Indicator & Statistical Calculations
+// ---------------------------------------------------------------------------
+
+function calculateSMA(data: { time: string | number; close: number }[], period: number) {
+  const result: { time: string | number; value: number }[] = [];
   if (data.length < period) return result;
   for (let i = period - 1; i < data.length; i++) {
     let sum = 0;
@@ -97,8 +155,8 @@ function calculateSMA(data: { time: string; close: number }[], period: number) {
   return result;
 }
 
-function calculateEMA(data: { time: string; close: number }[], period: number) {
-  const result: { time: string; value: number }[] = [];
+function calculateEMA(data: { time: string | number; close: number }[], period: number) {
+  const result: { time: string | number; value: number }[] = [];
   if (data.length < period) return result;
   const k = 2 / (period + 1);
   let prevEMA = data.slice(0, period).reduce((acc, val) => acc + val.close, 0) / period;
@@ -110,10 +168,14 @@ function calculateEMA(data: { time: string; close: number }[], period: number) {
   return result;
 }
 
-function calculateBollingerBands(data: { time: string; close: number }[], period: number = 20, multiplier: number = 2.0) {
-  const upper: { time: string; value: number }[] = [];
-  const middle: { time: string; value: number }[] = [];
-  const lower: { time: string; value: number }[] = [];
+function calculateBollingerBands(
+  data: { time: string | number; close: number }[],
+  period: number = 20,
+  multiplier: number = 2.0
+) {
+  const upper: { time: string | number; value: number }[] = [];
+  const middle: { time: string | number; value: number }[] = [];
+  const lower: { time: string | number; value: number }[] = [];
 
   if (data.length < period) return { upper, middle, lower };
 
@@ -135,42 +197,145 @@ function calculateBollingerBands(data: { time: string; close: number }[], period
   return { upper, middle, lower };
 }
 
-function calculateRSI(closes: number[], period: number = 14): number {
-  if (closes.length < period + 1) return 50.0;
+function calculateRSISeries(data: { time: string | number; close: number }[], period: number = 14) {
+  const result: { time: string | number; value: number }[] = [];
+  if (data.length < period + 1) return result;
+
   let gains = 0;
   let losses = 0;
   for (let i = 1; i <= period; i++) {
-    const diff = closes[i] - closes[i - 1];
+    const diff = data[i].close - data[i - 1].close;
     if (diff >= 0) gains += diff;
     else losses -= diff;
   }
   let avgGain = gains / period;
   let avgLoss = losses / period;
 
-  for (let i = period + 1; i < closes.length; i++) {
-    const diff = closes[i] - closes[i - 1];
+  let rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+  result.push({ time: data[period].time, value: +(100 - 100 / (1 + rs)).toFixed(1) });
+
+  for (let i = period + 1; i < data.length; i++) {
+    const diff = data[i].close - data[i - 1].close;
     avgGain = (avgGain * (period - 1) + (diff > 0 ? diff : 0)) / period;
     avgLoss = (avgLoss * (period - 1) + (diff < 0 ? -diff : 0)) / period;
+    rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+    result.push({ time: data[i].time, value: +(100 - 100 / (1 + rs)).toFixed(1) });
   }
+  return result;
+}
 
-  if (avgLoss === 0) return 100.0;
-  const rs = avgGain / avgLoss;
-  return +(100 - 100 / (1 + rs)).toFixed(1);
+function calculateMACDSeries(data: { time: string | number; close: number }[], fast = 12, slow = 26, signal = 9) {
+  const macdLine: { time: string | number; value: number }[] = [];
+  const signalLine: { time: string | number; value: number }[] = [];
+  const histogram: { time: string | number; value: number; color: string }[] = [];
+
+  const emaFast = calculateEMA(data, fast);
+  const emaSlow = calculateEMA(data, slow);
+
+  const fastMap = new Map(emaFast.map((d) => [d.time, d.value]));
+  const slowMap = new Map(emaSlow.map((d) => [d.time, d.value]));
+
+  const rawMacd: { time: string | number; close: number }[] = [];
+  data.forEach((d) => {
+    const f = fastMap.get(d.time);
+    const s = slowMap.get(d.time);
+    if (f !== undefined && s !== undefined) {
+      const val = +(f - s).toFixed(2);
+      macdLine.push({ time: d.time, value: val });
+      rawMacd.push({ time: d.time, close: val });
+    }
+  });
+
+  const sigSeries = calculateEMA(rawMacd, signal);
+  const sigMap = new Map(sigSeries.map((d) => [d.time, d.value]));
+
+  macdLine.forEach((m) => {
+    const s = sigMap.get(m.time);
+    if (s !== undefined) {
+      signalLine.push({ time: m.time, value: s });
+      const hist = +(m.value - s).toFixed(2);
+      histogram.push({
+        time: m.time,
+        value: hist,
+        color: hist >= 0 ? 'rgba(16, 185, 129, 0.65)' : 'rgba(239, 68, 68, 0.65)',
+      });
+    }
+  });
+
+  return { macdLine, signalLine, histogram };
+}
+
+function calculateClassicalPivots(high: number, low: number, close: number) {
+  const pivot = (high + low + close) / 3;
+  const r1 = 2 * pivot - low;
+  const s1 = 2 * pivot - high;
+  const r2 = pivot + (high - low);
+  const s2 = pivot - (high - low);
+  return {
+    pivot: +pivot.toFixed(2),
+    r1: +r1.toFixed(2),
+    r2: +r2.toFixed(2),
+    s1: +s1.toFixed(2),
+    s2: +s2.toFixed(2),
+  };
+}
+
+function calculateFibonacciLevels(high: number, low: number) {
+  const diff = high - low;
+  return {
+    f100: +high.toFixed(2),
+    f786: +(high - 0.214 * diff).toFixed(2),
+    f618: +(high - 0.382 * diff).toFixed(2),
+    f500: +(high - 0.500 * diff).toFixed(2),
+    f382: +(high - 0.618 * diff).toFixed(2),
+    f236: +(high - 0.764 * diff).toFixed(2),
+    f0: +low.toFixed(2),
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
 
-export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps) {
+export function TradingViewChart({ ticker, height = 480 }: TradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const oscContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const oscChartRef = useRef<IChartApi | null>(null);
   const mainSeriesRef = useRef<any>(null);
   const volumeSeriesRef = useRef<any>(null);
   const indicatorSeriesRefs = useRef<{ [key: string]: any }>({});
+  const oscSeriesRefs = useRef<{ [key: string]: any }>({});
   const priceLineRefs = useRef<{ [key: string]: IPriceLine }>({});
   const rawBarsRef = useRef<any[]>([]);
-  const currentBarRef = useRef<CandlestickData | null>(null);
+  const currentBarRef = useRef<any>(null);
+
+  // Cached calculated series data for quick crosshair lookup
+  const calcDataMapRef = useRef<{
+    smaFastMap: Map<string, number>;
+    smaSlowMap: Map<string, number>;
+    emaFastMap: Map<string, number>;
+    emaSlowMap: Map<string, number>;
+    bbUpperMap: Map<string, number>;
+    bbMiddleMap: Map<string, number>;
+    bbLowerMap: Map<string, number>;
+    rsiMap: Map<string, number>;
+    macdMap: Map<string, number>;
+    macdSigMap: Map<string, number>;
+    macdHistMap: Map<string, number>;
+  }>({
+    smaFastMap: new Map(),
+    smaSlowMap: new Map(),
+    emaFastMap: new Map(),
+    emaSlowMap: new Map(),
+    bbUpperMap: new Map(),
+    bbMiddleMap: new Map(),
+    bbLowerMap: new Map(),
+    rsiMap: new Map(),
+    macdMap: new Map(),
+    macdSigMap: new Map(),
+    macdHistMap: new Map(),
+  });
 
   // --- States ---
   const [chartType, setChartType] = useState<ChartType>('candlestick');
@@ -179,7 +344,12 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
   const [priceChange, setPriceChange] = useState<number>(0);
   const [lastTickTime, setLastTickTime] = useState<string>('');
   const [hoverData, setHoverData] = useState<HoverData | null>(null);
-  const [showEditor, setShowEditor] = useState(false);
+  const [oscillatorView, setOscillatorView] = useState<OscillatorView>('rsi');
+
+  // Drawer modal state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerTab, setDrawerTab] = useState<'params' | 'lines' | 'levels' | 'zones'>('params');
+  const [directiveToast, setDirectiveToast] = useState<string | null>(null);
 
   // Indicator Parameters
   const [params, setParams] = useState<IndicatorParameters>({
@@ -192,35 +362,47 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
     rsiPeriod: 14,
   });
 
+  // Indicators toggle state
+  const [indicators, setIndicators] = useState({
+    sma: true,
+    ema: false,
+    bb: true,
+    volume: true,
+    pivots: true,
+    fibonacci: false,
+    patterns: true,
+    zones: true,
+  });
+
   // Calculated Live Metrics
   const [liveMetrics, setLiveMetrics] = useState<{
     rsi: number;
     rsiStatus: 'OVERSOLD' | 'NEUTRAL' | 'OVERBOUGHT';
     smaFastVal: number | null;
     smaSlowVal: number | null;
+    emaFastVal: number | null;
+    emaSlowVal: number | null;
     bbBandwidth: number | null;
+    pivots: { pivot: number; r1: number; r2: number; s1: number; s2: number } | null;
+    fibs: { f100: number; f786: number; f618: number; f500: number; f382: number; f236: number; f0: number } | null;
+    overallSignal: 'STRONG BUY' | 'BUY' | 'NEUTRAL' | 'SELL' | 'STRONG SELL';
+    signalScore: number;
   }>({
     rsi: 50,
     rsiStatus: 'NEUTRAL',
     smaFastVal: null,
     smaSlowVal: null,
+    emaFastVal: null,
+    emaSlowVal: null,
     bbBandwidth: null,
+    pivots: null,
+    fibs: null,
+    overallSignal: 'NEUTRAL',
+    signalScore: 0,
   });
 
-  // Indicators toggle state
-  const [indicators, setIndicators] = useState({
-    sma20: true,
-    sma50: true,
-    ema9: false,
-    ema21: false,
-    bb: true,
-    volume: true,
-  });
-
-  // Custom Price Lines
-  const [priceLines, setPriceLines] = useState<CustomPriceLine[]>([
-    { id: '1', price: 0, label: 'Target Price', color: '#10b981' },
-  ]);
+  // Custom User / Directive Price Lines
+  const [priceLines, setPriceLines] = useState<CustomPriceLine[]>([]);
   const [newLinePrice, setNewLinePrice] = useState('');
   const [newLineLabel, setNewLineLabel] = useState('Resistance');
   const [newLineColor, setNewLineColor] = useState('#ef4444');
@@ -245,72 +427,89 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
       setIndicators((prev) => {
         const next = { ...prev };
         chartDirective.enable_indicators!.forEach((ind) => {
-          if (ind in next) {
-            (next as any)[ind] = true;
-          }
+          if (ind === 'sma20' || ind === 'sma50') next.sma = true;
+          if (ind === 'ema9' || ind === 'ema21') next.ema = true;
+          if (ind === 'bb') next.bb = true;
+          if (ind === 'volume') next.volume = true;
+          if (ind === 'pivots') next.pivots = true;
+          if (ind === 'fibonacci') next.fibonacci = true;
         });
         return next;
       });
     }
+
     if (chartDirective.add_price_lines && Array.isArray(chartDirective.add_price_lines)) {
       setPriceLines((prev) => {
-        const existingLabels = new Set(prev.map((l) => l.label));
-        const toAdd = chartDirective.add_price_lines!.filter((l) => !existingLabels.has(l.label));
+        const existingPrices = new Set(prev.map((l) => Math.round(l.price * 100)));
+        const toAdd = chartDirective.add_price_lines!.filter(
+          (l) => !existingPrices.has(Math.round(l.price * 100))
+        );
         return [...prev, ...toAdd];
       });
     }
 
-    setShowEditor(true);
-  }, [chartDirective]);
+    // Trigger visual toast
+    setDirectiveToast(`AI Analysis Visualized on ${ticker} Chart`);
+    const timer = setTimeout(() => setDirectiveToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [chartDirective, ticker]);
 
   // -------------------------------------------------------------------------
   // WebSocket Handler
   // -------------------------------------------------------------------------
-  const onMessage = useCallback((data: string) => {
-    try {
-      const tick: MarketTick = JSON.parse(data);
-      if (tick.ticker !== ticker || tick.action === 'pong') return;
+  const onMessage = useCallback(
+    (data: string) => {
+      try {
+        const tick: MarketTick = JSON.parse(data);
+        if (tick.ticker !== ticker || tick.action === 'pong') return;
 
-      updateTick(tick);
-      setCurrentPrice(tick.price);
-      setPriceChange(tick.changePct * 100);
+        updateTick(tick);
+        setCurrentPrice(tick.price);
+        setPriceChange(tick.changePct * 100);
 
-      const now = new Date(tick.timestamp || Date.now());
-      setLastTickTime(now.toLocaleTimeString('en-US', { hour12: false }));
+        const now = new Date(tick.timestamp || Date.now());
+        setLastTickTime(now.toLocaleTimeString('en-US', { hour12: false }));
 
-      const dateStr = now.toISOString().split('T')[0];
-      if (mainSeriesRef.current) {
-        if (!currentBarRef.current || (currentBarRef.current.time as string) !== dateStr) {
-          currentBarRef.current = {
-            time: dateStr as any,
-            open: tick.price,
-            high: tick.price,
-            low: tick.price,
-            close: tick.price,
-          };
-        } else {
-          currentBarRef.current = {
-            ...currentBarRef.current,
-            high: Math.max(currentBarRef.current.high, tick.price),
-            low: Math.min(currentBarRef.current.low, tick.price),
-            close: tick.price,
-          };
+        const isIntraday = timeframe === '1D' || timeframe === '5D';
+        const chartTime = toChartTime(tick.timestamp, isIntraday);
+
+        if (mainSeriesRef.current) {
+          if (!currentBarRef.current || currentBarRef.current.time !== chartTime) {
+            currentBarRef.current = {
+              time: chartTime as any,
+              open: tick.price,
+              high: tick.price,
+              low: tick.price,
+              close: tick.price,
+            };
+          } else {
+            currentBarRef.current = {
+              ...currentBarRef.current,
+              high: Math.max(currentBarRef.current.high, tick.price),
+              low: Math.min(currentBarRef.current.low, tick.price),
+              close: tick.price,
+            };
+          }
+
+          if (chartType === 'candlestick' || chartType === 'bar') {
+            mainSeriesRef.current.update(currentBarRef.current);
+          } else {
+            mainSeriesRef.current.update({ time: chartTime, value: tick.price });
+          }
         }
-
-        if (chartType === 'candlestick' || chartType === 'bar') {
-          mainSeriesRef.current.update(currentBarRef.current);
-        } else {
-          mainSeriesRef.current.update({ time: dateStr, value: tick.price });
-        }
+      } catch {
+        // Ignore malformed messages
       }
-    } catch {
-      // Ignore malformed messages
-    }
-  }, [ticker, chartType, updateTick]);
+    },
+    [ticker, chartType, timeframe, updateTick]
+  );
 
-  const onStatusChange = useCallback((connected: boolean) => {
-    setWsConnected(ticker, connected);
-  }, [ticker, setWsConnected]);
+  const onStatusChange = useCallback(
+    (connected: boolean) => {
+      setWsConnected(ticker, connected);
+    },
+    [ticker, setWsConnected]
+  );
 
   const { isConnected } = useWebSocket(`/ws/market/${ticker}`, {
     onMessage,
@@ -318,97 +517,405 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
   });
 
   // -------------------------------------------------------------------------
+  // Clear and Re-draw Price Lines (Pivots, Fibs, Custom Lines)
+  // -------------------------------------------------------------------------
+  const refreshPriceLines = useCallback(
+    (
+      mainSeries: any,
+      pivots: { pivot: number; r1: number; r2: number; s1: number; s2: number } | null,
+      fibs: { f100: number; f786: number; f618: number; f500: number; f382: number; f236: number; f0: number } | null,
+      customLines: CustomPriceLine[],
+      showPivots: boolean,
+      showFibs: boolean
+    ) => {
+      if (!mainSeries) return;
+
+      // Clean up previous lines
+      Object.values(priceLineRefs.current).forEach((pl) => {
+        try {
+          mainSeries.removePriceLine(pl);
+        } catch {}
+      });
+      priceLineRefs.current = {};
+
+      const drawnPrices = new Set<number>();
+
+      // 1. Classical Pivots
+      if (showPivots && pivots) {
+        try {
+          priceLineRefs.current['r2'] = mainSeries.createPriceLine({
+            price: pivots.r2,
+            color: '#f43f5e',
+            lineWidth: 1,
+            lineStyle: LineStyle.Dotted,
+            axisLabelVisible: true,
+            title: `R2 $${pivots.r2}`,
+          });
+          drawnPrices.add(Math.round(pivots.r2 * 100));
+
+          priceLineRefs.current['r1'] = mainSeries.createPriceLine({
+            price: pivots.r1,
+            color: '#ef4444',
+            lineWidth: 2,
+            lineStyle: LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: `R1 $${pivots.r1}`,
+          });
+          drawnPrices.add(Math.round(pivots.r1 * 100));
+
+          priceLineRefs.current['pivot'] = mainSeries.createPriceLine({
+            price: pivots.pivot,
+            color: '#3b82f6',
+            lineWidth: 2,
+            lineStyle: LineStyle.Solid,
+            axisLabelVisible: true,
+            title: `Pivot $${pivots.pivot}`,
+          });
+          drawnPrices.add(Math.round(pivots.pivot * 100));
+
+          priceLineRefs.current['s1'] = mainSeries.createPriceLine({
+            price: pivots.s1,
+            color: '#10b981',
+            lineWidth: 2,
+            lineStyle: LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: `S1 $${pivots.s1}`,
+          });
+          drawnPrices.add(Math.round(pivots.s1 * 100));
+
+          priceLineRefs.current['s2'] = mainSeries.createPriceLine({
+            price: pivots.s2,
+            color: '#059669',
+            lineWidth: 1,
+            lineStyle: LineStyle.Dotted,
+            axisLabelVisible: true,
+            title: `S2 $${pivots.s2}`,
+          });
+          drawnPrices.add(Math.round(pivots.s2 * 100));
+        } catch {}
+      }
+
+      // 2. Fibonacci Retracements
+      if (showFibs && fibs) {
+        try {
+          priceLineRefs.current['fib618'] = mainSeries.createPriceLine({
+            price: fibs.f618,
+            color: '#c084fc',
+            lineWidth: 2,
+            lineStyle: LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: `Fib 61.8% $${fibs.f618}`,
+          });
+          priceLineRefs.current['fib500'] = mainSeries.createPriceLine({
+            price: fibs.f500,
+            color: '#eab308',
+            lineWidth: 1,
+            lineStyle: LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: `Fib 50.0% $${fibs.f500}`,
+          });
+          priceLineRefs.current['fib382'] = mainSeries.createPriceLine({
+            price: fibs.f382,
+            color: '#38bdf8',
+            lineWidth: 1,
+            lineStyle: LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: `Fib 38.2% $${fibs.f382}`,
+          });
+        } catch {}
+      }
+
+      // 3. Custom Lines (Deduplicate against already drawn pivot prices)
+      customLines.forEach((line) => {
+        const roundedPrice = Math.round(line.price * 100);
+        if (line.price > 0 && !drawnPrices.has(roundedPrice)) {
+          try {
+            priceLineRefs.current[line.id] = mainSeries.createPriceLine({
+              price: line.price,
+              color: line.color,
+              lineWidth: 2,
+              lineStyle: LineStyle.Dashed,
+              axisLabelVisible: true,
+              title: `${line.label.replace(/\(\$\d+(\.\d+)?\)/, '').trim()} $${line.price.toFixed(2)}`,
+            });
+            drawnPrices.add(roundedPrice);
+          } catch {}
+        }
+      });
+    },
+    []
+  );
+
+  // -------------------------------------------------------------------------
   // Render Indicators on Chart
   // -------------------------------------------------------------------------
-  const applyIndicators = useCallback((bars: any[], chart: IChartApi) => {
-    if (!bars || bars.length === 0) return;
+  const applyIndicators = useCallback(
+    (bars: any[], chart: IChartApi) => {
+      if (!bars || bars.length === 0) return;
 
-    const closeData = bars.map((b) => ({ time: b.time, close: b.close }));
-    const rawCloses = bars.map((b) => b.close);
+      const closeData = bars.map((b) => ({ time: b.time, close: b.close }));
+      const rawCloses = bars.map((b) => b.close);
+      const rawHighs = bars.map((b) => b.high ?? b.close);
+      const rawLows = bars.map((b) => b.low ?? b.close);
 
-    // Compute live technical summary
-    const rsiVal = calculateRSI(rawCloses, params.rsiPeriod);
-    const rsiStatus = rsiVal >= 70 ? 'OVERBOUGHT' : rsiVal <= 30 ? 'OVERSOLD' : 'NEUTRAL';
-    const smaFast = calculateSMA(closeData, params.smaFast);
-    const smaSlow = calculateSMA(closeData, params.smaSlow);
-    const bb = calculateBollingerBands(closeData, params.bbPeriod, params.bbStd);
+      const maxHigh = Math.max(...rawHighs);
+      const minLow = Math.min(...rawLows);
+      const lastClose = rawCloses[rawCloses.length - 1];
 
-    const lastFast = smaFast.length > 0 ? smaFast[smaFast.length - 1].value : null;
-    const lastSlow = smaSlow.length > 0 ? smaSlow[smaSlow.length - 1].value : null;
-    const lastBBWidth = (bb.upper.length > 0 && bb.middle.length > 0)
-      ? +(((bb.upper[bb.upper.length - 1].value - bb.lower[bb.lower.length - 1].value) / bb.middle[bb.middle.length - 1].value) * 100).toFixed(1)
-      : null;
+      // 1. Compute Indicators
+      const rsiSeriesData = calculateRSISeries(closeData, params.rsiPeriod);
+      const macdData = calculateMACDSeries(closeData);
 
-    setLiveMetrics({
-      rsi: rsiVal,
-      rsiStatus,
-      smaFastVal: lastFast,
-      smaSlowVal: lastSlow,
-      bbBandwidth: lastBBWidth,
-    });
+      const rsiVal = rsiSeriesData.length > 0 ? rsiSeriesData[rsiSeriesData.length - 1].value : 50;
+      const rsiStatus = rsiVal >= 70 ? 'OVERBOUGHT' : rsiVal <= 30 ? 'OVERSOLD' : 'NEUTRAL';
 
-    // Clean up previous indicator series
-    Object.values(indicatorSeriesRefs.current).forEach((series) => {
-      try { chart.removeSeries(series); } catch {}
-    });
-    indicatorSeriesRefs.current = {};
-
-    // SMA Fast
-    if (indicators.sma20) {
-      const s = chart.addLineSeries({ color: '#3b82f6', lineWidth: 2, title: `SMA ${params.smaFast}` });
-      s.setData(smaFast as any);
-      indicatorSeriesRefs.current.sma20 = s;
-    }
-
-    // SMA Slow
-    if (indicators.sma50) {
-      const s = chart.addLineSeries({ color: '#f59e0b', lineWidth: 2, title: `SMA ${params.smaSlow}` });
-      s.setData(smaSlow as any);
-      indicatorSeriesRefs.current.sma50 = s;
-    }
-
-    // EMA Fast
-    if (indicators.ema9) {
+      const smaFast = calculateSMA(closeData, params.smaFast);
+      const smaSlow = calculateSMA(closeData, params.smaSlow);
       const emaFast = calculateEMA(closeData, params.emaFast);
-      const s = chart.addLineSeries({ color: '#a855f7', lineWidth: 2, title: `EMA ${params.emaFast}` });
-      s.setData(emaFast as any);
-      indicatorSeriesRefs.current.ema9 = s;
-    }
-
-    // EMA Slow
-    if (indicators.ema21) {
       const emaSlow = calculateEMA(closeData, params.emaSlow);
-      const s = chart.addLineSeries({ color: '#10b981', lineWidth: 2, title: `EMA ${params.emaSlow}` });
-      s.setData(emaSlow as any);
-      indicatorSeriesRefs.current.ema21 = s;
-    }
+      const bb = calculateBollingerBands(closeData, params.bbPeriod, params.bbStd);
 
-    // Bollinger Bands
-    if (indicators.bb) {
-      const u = chart.addLineSeries({ color: '#06b6d4', lineWidth: 1, lineStyle: LineStyle.Dashed, title: `BB Upper (${params.bbPeriod},${params.bbStd})` });
-      const m = chart.addLineSeries({ color: '#0891b2', lineWidth: 1, title: 'BB Mid' });
-      const l = chart.addLineSeries({ color: '#06b6d4', lineWidth: 1, lineStyle: LineStyle.Dashed, title: 'BB Lower' });
-      u.setData(bb.upper as any);
-      m.setData(bb.middle as any);
-      l.setData(bb.lower as any);
-      indicatorSeriesRefs.current.bbUpper = u;
-      indicatorSeriesRefs.current.bbMiddle = m;
-      indicatorSeriesRefs.current.bbLower = l;
-    }
+      const calculatedPivots = calculateClassicalPivots(maxHigh, minLow, lastClose);
+      const calculatedFibs = calculateFibonacciLevels(maxHigh, minLow);
 
-    // Volume
-    if (indicators.volume && volumeSeriesRef.current) {
-      const volData = bars.map((b) => ({
-        time: b.time,
-        value: b.volume || 1000000,
-        color: b.close >= b.open ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.35)',
-      }));
-      volumeSeriesRef.current.setData(volData);
-    }
-  }, [indicators, params]);
+      // Populate lookup maps for ultra-fast crosshair hover
+      calcDataMapRef.current.smaFastMap = new Map(smaFast.map((d) => [String(d.time), d.value]));
+      calcDataMapRef.current.smaSlowMap = new Map(smaSlow.map((d) => [String(d.time), d.value]));
+      calcDataMapRef.current.emaFastMap = new Map(emaFast.map((d) => [String(d.time), d.value]));
+      calcDataMapRef.current.emaSlowMap = new Map(emaSlow.map((d) => [String(d.time), d.value]));
+      calcDataMapRef.current.bbUpperMap = new Map(bb.upper.map((d) => [String(d.time), d.value]));
+      calcDataMapRef.current.bbMiddleMap = new Map(bb.middle.map((d) => [String(d.time), d.value]));
+      calcDataMapRef.current.bbLowerMap = new Map(bb.lower.map((d) => [String(d.time), d.value]));
+      calcDataMapRef.current.rsiMap = new Map(rsiSeriesData.map((d) => [String(d.time), d.value]));
+      calcDataMapRef.current.macdMap = new Map(macdData.macdLine.map((d) => [String(d.time), d.value]));
+      calcDataMapRef.current.macdSigMap = new Map(macdData.signalLine.map((d) => [String(d.time), d.value]));
+      calcDataMapRef.current.macdHistMap = new Map(macdData.histogram.map((d) => [String(d.time), d.value]));
+
+      const lastFast = smaFast.length > 0 ? smaFast[smaFast.length - 1].value : null;
+      const lastSlow = smaSlow.length > 0 ? smaSlow[smaSlow.length - 1].value : null;
+      const lastEmaFast = emaFast.length > 0 ? emaFast[emaFast.length - 1].value : null;
+      const lastEmaSlow = emaSlow.length > 0 ? emaSlow[emaSlow.length - 1].value : null;
+
+      const lastBBWidth =
+        bb.upper.length > 0 && bb.middle.length > 0
+          ? +(
+              ((bb.upper[bb.upper.length - 1].value - bb.lower[bb.lower.length - 1].value) /
+                bb.middle[bb.middle.length - 1].value) *
+              100
+            ).toFixed(1)
+          : null;
+
+      // Composite Technical Score Calculation
+      let score = 0;
+      if (lastFast && lastSlow) {
+        if (lastClose > lastFast && lastFast > lastSlow) score += 2;
+        else if (lastClose < lastFast && lastFast < lastSlow) score -= 2;
+      }
+      if (rsiVal < 35) score += 2;
+      else if (rsiVal > 70) score -= 2;
+      else if (rsiVal > 50) score += 1;
+      else score -= 1;
+
+      let overallSignal: 'STRONG BUY' | 'BUY' | 'NEUTRAL' | 'SELL' | 'STRONG SELL' = 'NEUTRAL';
+      if (score >= 3) overallSignal = 'STRONG BUY';
+      else if (score >= 1) overallSignal = 'BUY';
+      else if (score <= -3) overallSignal = 'STRONG SELL';
+      else if (score <= -1) overallSignal = 'SELL';
+
+      setLiveMetrics({
+        rsi: rsiVal,
+        rsiStatus,
+        smaFastVal: lastFast,
+        smaSlowVal: lastSlow,
+        emaFastVal: lastEmaFast,
+        emaSlowVal: lastEmaSlow,
+        bbBandwidth: lastBBWidth,
+        pivots: calculatedPivots,
+        fibs: calculatedFibs,
+        overallSignal,
+        signalScore: score,
+      });
+
+      // Clean up previous indicator series
+      Object.values(indicatorSeriesRefs.current).forEach((series) => {
+        try {
+          chart.removeSeries(series);
+        } catch {}
+      });
+      indicatorSeriesRefs.current = {};
+
+      // 2. Add Active Indicator Series
+      if (indicators.sma) {
+        const sFast = chart.addLineSeries({
+          color: '#00d2ff',
+          lineWidth: 2,
+          title: `SMA ${params.smaFast}`,
+        });
+        sFast.setData(smaFast as any);
+        indicatorSeriesRefs.current.smaFast = sFast;
+
+        const sSlow = chart.addLineSeries({
+          color: '#ffb703',
+          lineWidth: 2,
+          title: `SMA ${params.smaSlow}`,
+        });
+        sSlow.setData(smaSlow as any);
+        indicatorSeriesRefs.current.smaSlow = sSlow;
+      }
+
+      if (indicators.ema) {
+        const eFast = chart.addLineSeries({
+          color: '#e879f9',
+          lineWidth: 2,
+          title: `EMA ${params.emaFast}`,
+        });
+        eFast.setData(emaFast as any);
+        indicatorSeriesRefs.current.emaFast = eFast;
+
+        const eSlow = chart.addLineSeries({
+          color: '#10b981',
+          lineWidth: 2,
+          title: `EMA ${params.emaSlow}`,
+        });
+        eSlow.setData(emaSlow as any);
+        indicatorSeriesRefs.current.emaSlow = eSlow;
+      }
+
+      if (indicators.bb) {
+        const u = chart.addLineSeries({
+          color: '#38bdf8',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          title: `BB Upper (${params.bbPeriod}, ${params.bbStd}σ)`,
+        });
+        const m = chart.addLineSeries({
+          color: '#0284c7',
+          lineWidth: 1,
+          lineStyle: LineStyle.Solid,
+          title: 'BB Mid',
+        });
+        const l = chart.addLineSeries({
+          color: '#38bdf8',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          title: 'BB Lower',
+        });
+        u.setData(bb.upper as any);
+        m.setData(bb.middle as any);
+        l.setData(bb.lower as any);
+        indicatorSeriesRefs.current.bbUpper = u;
+        indicatorSeriesRefs.current.bbMiddle = m;
+        indicatorSeriesRefs.current.bbLower = l;
+      }
+
+      if (indicators.volume && volumeSeriesRef.current) {
+        const volData = bars.map((b) => ({
+          time: b.time,
+          value: b.volume || 1000000,
+          color: b.close >= b.open ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
+        }));
+        volumeSeriesRef.current.setData(volData);
+      }
+
+      // 3. Pattern Markers (Golden Cross / Death Cross / RSI Extremes)
+      if (indicators.patterns && mainSeriesRef.current && smaFast.length > 2 && smaSlow.length > 2) {
+        const markers: SeriesMarker<any>[] = [];
+        const fastMap = new Map(smaFast.map((d) => [d.time, d.value]));
+        const slowMap = new Map(smaSlow.map((d) => [d.time, d.value]));
+
+        for (let i = 1; i < bars.length; i++) {
+          const tPrev = bars[i - 1].time;
+          const tCurr = bars[i].time;
+          const fPrev = fastMap.get(tPrev);
+          const sPrev = slowMap.get(tPrev);
+          const fCurr = fastMap.get(tCurr);
+          const sCurr = slowMap.get(tCurr);
+
+          if (fPrev && sPrev && fCurr && sCurr) {
+            // Golden Cross
+            if (fPrev <= sPrev && fCurr > sCurr) {
+              markers.push({
+                time: tCurr,
+                position: 'belowBar',
+                color: '#10b981',
+                shape: 'arrowUp',
+                text: 'Golden Cross',
+              });
+            }
+            // Death Cross
+            else if (fPrev >= sPrev && fCurr < sCurr) {
+              markers.push({
+                time: tCurr,
+                position: 'aboveBar',
+                color: '#ef4444',
+                shape: 'arrowDown',
+                text: 'Death Cross',
+              });
+            }
+          }
+        }
+        try {
+          mainSeriesRef.current.setMarkers(markers.slice(-6)); // Show latest 6 pattern triggers
+        } catch {}
+      } else if (mainSeriesRef.current) {
+        try {
+          mainSeriesRef.current.setMarkers([]);
+        } catch {}
+      }
+
+      // 4. Draw Price Lines
+      if (mainSeriesRef.current) {
+        refreshPriceLines(
+          mainSeriesRef.current,
+          calculatedPivots,
+          calculatedFibs,
+          priceLines,
+          indicators.pivots,
+          indicators.fibonacci
+        );
+      }
+
+      // 5. Update Oscillator Sub-Panel
+      if (oscChartRef.current && oscillatorView !== 'none') {
+        Object.values(oscSeriesRefs.current).forEach((s) => {
+          try {
+            oscChartRef.current?.removeSeries(s);
+          } catch {}
+        });
+        oscSeriesRefs.current = {};
+
+        if (oscillatorView === 'rsi' || oscillatorView === 'both') {
+          const rsiSeries = oscChartRef.current.addLineSeries({
+            color: '#a855f7',
+            lineWidth: 2,
+            title: `RSI (${params.rsiPeriod})`,
+          });
+          rsiSeries.setData(rsiSeriesData as any);
+          rsiSeries.createPriceLine({ price: 70, color: '#ef4444', lineWidth: 1, lineStyle: LineStyle.Dashed, title: 'OB 70' });
+          rsiSeries.createPriceLine({ price: 30, color: '#10b981', lineWidth: 1, lineStyle: LineStyle.Dashed, title: 'OS 30' });
+          oscSeriesRefs.current.rsi = rsiSeries;
+        }
+
+        if (oscillatorView === 'macd' || oscillatorView === 'both') {
+          const macdLine = oscChartRef.current.addLineSeries({ color: '#38bdf8', lineWidth: 1, title: 'MACD' });
+          const macdSig = oscChartRef.current.addLineSeries({ color: '#f59e0b', lineWidth: 1, title: 'Signal' });
+          const macdHist = oscChartRef.current.addHistogramSeries({ title: 'Histogram' });
+
+          macdLine.setData(macdData.macdLine as any);
+          macdSig.setData(macdData.signalLine as any);
+          macdHist.setData(macdData.histogram as any);
+
+          oscSeriesRefs.current.macdLine = macdLine;
+          oscSeriesRefs.current.macdSig = macdSig;
+          oscSeriesRefs.current.macdHist = macdHist;
+        }
+      }
+    },
+    [indicators, params, priceLines, oscillatorView, refreshPriceLines]
+  );
 
   // -------------------------------------------------------------------------
-  // Initialize Chart Instance (Once on Mount)
+  // Initialize Chart Instances (Main & Oscillator)
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (!containerRef.current) return;
@@ -445,7 +952,7 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
       },
       rightPriceScale: {
         borderColor: 'rgba(99, 131, 195, 0.15)',
-        scaleMargins: { top: 0.1, bottom: 0.2 },
+        scaleMargins: { top: 0.08, bottom: 0.15 },
       },
       timeScale: {
         borderColor: 'rgba(99, 131, 195, 0.15)',
@@ -469,7 +976,7 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
     });
     volumeSeriesRef.current = volumeSeries;
 
-    // Crosshair hover listener
+    // Crosshair hover listener for the interactive floating HUD
     chart.subscribeCrosshairMove((param) => {
       if (!param.time || !param.seriesData || !mainSeriesRef.current) {
         setHoverData(null);
@@ -478,9 +985,8 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
 
       const data = param.seriesData.get(mainSeriesRef.current) as any;
       if (data) {
-        const timeStr = typeof param.time === 'string'
-          ? param.time
-          : new Date((param.time as number) * 1000).toISOString().split('T')[0];
+        const timeKey = String(param.time);
+        const displayTimeStr = formatDisplayTime(param.time as string | number);
 
         const open = data.open ?? data.value ?? 0;
         const close = data.close ?? data.value ?? 0;
@@ -489,21 +995,55 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
         const vol = (param.seriesData.get(volumeSeries) as any)?.value;
 
         setHoverData({
-          time: timeStr,
+          timeStr: displayTimeStr,
           open,
           high,
           low,
           close,
           volume: vol,
           changePct: open ? ((close - open) / open) * 100 : 0,
+          smaFast: calcDataMapRef.current.smaFastMap.get(timeKey) ?? null,
+          smaSlow: calcDataMapRef.current.smaSlowMap.get(timeKey) ?? null,
+          emaFast: calcDataMapRef.current.emaFastMap.get(timeKey) ?? null,
+          emaSlow: calcDataMapRef.current.emaSlowMap.get(timeKey) ?? null,
+          bbUpper: calcDataMapRef.current.bbUpperMap.get(timeKey) ?? null,
+          bbMiddle: calcDataMapRef.current.bbMiddleMap.get(timeKey) ?? null,
+          bbLower: calcDataMapRef.current.bbLowerMap.get(timeKey) ?? null,
+          rsiVal: calcDataMapRef.current.rsiMap.get(timeKey) ?? null,
+          macdVal: calcDataMapRef.current.macdMap.get(timeKey) ?? null,
+          macdSig: calcDataMapRef.current.macdSigMap.get(timeKey) ?? null,
+          macdHist: calcDataMapRef.current.macdHistMap.get(timeKey) ?? null,
         });
       }
     });
+
+    // Sub-panel chart for RSI / MACD
+    if (oscContainerRef.current && oscillatorView !== 'none') {
+      oscContainerRef.current.innerHTML = '';
+      const oscChart = createChart(oscContainerRef.current, {
+        width: oscContainerRef.current.clientWidth,
+        height: 120,
+        layout: {
+          background: { type: ColorType.Solid, color: 'rgba(15, 23, 42, 0.5)' },
+          textColor: '#8b99b8',
+          fontSize: 10,
+        },
+        grid: {
+          vertLines: { color: 'rgba(99, 131, 195, 0.05)' },
+          horzLines: { color: 'rgba(99, 131, 195, 0.05)' },
+        },
+        timeScale: { visible: false },
+      });
+      oscChartRef.current = oscChart;
+    }
 
     const resizeObserver = new ResizeObserver(() => {
       if (containerRef.current && chartRef.current) {
         try {
           chartRef.current.applyOptions({ width: containerRef.current.clientWidth });
+          if (oscContainerRef.current && oscChartRef.current) {
+            oscChartRef.current.applyOptions({ width: oscContainerRef.current.clientWidth });
+          }
         } catch {}
       }
     });
@@ -513,10 +1053,12 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
       resizeObserver.disconnect();
       try {
         chart.remove();
+        oscChartRef.current?.remove();
       } catch {}
       chartRef.current = null;
+      oscChartRef.current = null;
     };
-  }, [height]);
+  }, [height, oscillatorView]);
 
   // -------------------------------------------------------------------------
   // Load / Update Series Data When Ticker, Timeframe, or Chart Type Changes
@@ -526,7 +1068,9 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
     if (!chart) return;
 
     if (mainSeriesRef.current) {
-      try { chart.removeSeries(mainSeriesRef.current); } catch {}
+      try {
+        chart.removeSeries(mainSeriesRef.current);
+      } catch {}
       mainSeriesRef.current = null;
     }
 
@@ -542,14 +1086,14 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
       });
     } else if (chartType === 'area') {
       mainSeries = chart.addAreaSeries({
-        topColor: 'rgba(59, 130, 246, 0.4)',
-        bottomColor: 'rgba(59, 130, 246, 0.0)',
-        lineColor: '#3b82f6',
+        topColor: 'rgba(0, 210, 255, 0.35)',
+        bottomColor: 'rgba(0, 210, 255, 0.0)',
+        lineColor: '#00d2ff',
         lineWidth: 2,
       });
     } else if (chartType === 'line') {
       mainSeries = chart.addLineSeries({
-        color: '#3b82f6',
+        color: '#00d2ff',
         lineWidth: 2,
       });
     } else {
@@ -567,29 +1111,45 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
       '3M': { period: '3mo', interval: '1d' },
       '6M': { period: '6mo', interval: '1d' },
       '1Y': { period: '1y', interval: '1wk' },
-      'YTD': { period: 'ytd', interval: '1d' },
+      YTD: { period: 'ytd', interval: '1d' },
     };
 
     const { period, interval } = tfMap[timeframe] || { period: '1mo', interval: '1d' };
-    const API_BASE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) || 'http://localhost:8080';
+    const isIntraday = timeframe === '1D' || timeframe === '5D';
+    const API_BASE =
+      (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) || 'http://localhost:8080';
 
     fetch(`${API_BASE}/market/ohlcv/${ticker}?period=${period}&interval=${interval}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((bars) => {
         if (!bars || !Array.isArray(bars) || bars.length === 0) return;
 
-        const chartData = bars.map((b: any) => {
-          const timeStr = b.timestamp.includes('T') ? b.timestamp.split('T')[0] : b.timestamp;
-          return {
-            time: timeStr,
-            open: b.open,
-            high: b.high,
-            low: b.low,
-            close: b.close,
-            volume: b.volume,
-          };
+        // Normalize timestamps and ensure strictly ascending unique order
+        const mappedBars = bars
+          .map((b: any) => ({
+            time: toChartTime(b.timestamp, isIntraday),
+            open: Number(b.open),
+            high: Number(b.high),
+            low: Number(b.low),
+            close: Number(b.close),
+            volume: Number(b.volume || 0),
+          }))
+          .sort((a, b) => {
+            if (typeof a.time === 'number' && typeof b.time === 'number') return a.time - b.time;
+            return String(a.time).localeCompare(String(b.time));
+          });
+
+        // Filter duplicates
+        const chartData: any[] = [];
+        const seenTimes = new Set<string | number>();
+        mappedBars.forEach((bar) => {
+          if (!seenTimes.has(bar.time)) {
+            seenTimes.add(bar.time);
+            chartData.push(bar);
+          }
         });
 
+        if (chartData.length === 0) return;
         rawBarsRef.current = chartData;
 
         if (chartType === 'candlestick' || chartType === 'bar') {
@@ -603,29 +1163,13 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
           setCurrentPrice(lastBar.close);
           const firstBar = chartData[0];
           setPriceChange(((lastBar.close - firstBar.open) / firstBar.open) * 100);
-          setLastTickTime(lastBar.time);
+          setLastTickTime(formatDisplayTime(lastBar.time));
         }
 
         applyIndicators(chartData, chart);
-
-        // Apply Custom Price Lines
-        priceLines.forEach((line) => {
-          if (line.price > 0) {
-            try {
-              const pl = mainSeries.createPriceLine({
-                price: line.price,
-                color: line.color,
-                lineWidth: 2,
-                lineStyle: LineStyle.Dashed,
-                axisLabelVisible: true,
-                title: line.label,
-              });
-              priceLineRefs.current[line.id] = pl;
-            } catch {}
-          }
-        });
-
-        try { chart.timeScale().fitContent(); } catch {}
+        try {
+          chart.timeScale().fitContent();
+        } catch {}
       })
       .catch((err) => console.debug('Historical OHLCV fetch skipped:', err));
   }, [ticker, timeframe, chartType, applyIndicators]);
@@ -637,7 +1181,7 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
     if (chartRef.current && rawBarsRef.current.length > 0) {
       applyIndicators(rawBarsRef.current, chartRef.current);
     }
-  }, [indicators, params, applyIndicators]);
+  }, [indicators, params, priceLines, oscillatorView, applyIndicators]);
 
   // -------------------------------------------------------------------------
   // Custom Price Line Controls
@@ -649,36 +1193,20 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
     const line: CustomPriceLine = {
       id: crypto.randomUUID(),
       price: p,
-      label: newLineLabel.trim() || 'Custom Level',
+      label: newLineLabel.trim() || 'Level',
       color: newLineColor,
     };
 
     setPriceLines((prev) => [...prev, line]);
     setNewLinePrice('');
-
-    if (mainSeriesRef.current) {
-      try {
-        const pl = mainSeriesRef.current.createPriceLine({
-          price: line.price,
-          color: line.color,
-          lineWidth: 2,
-          lineStyle: LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: line.label,
-        });
-        priceLineRefs.current[line.id] = pl;
-      } catch {}
-    }
   };
 
   const removePriceLine = (id: string) => {
     setPriceLines((prev) => prev.filter((l) => l.id !== id));
-    if (mainSeriesRef.current && priceLineRefs.current[id]) {
-      try {
-        mainSeriesRef.current.removePriceLine(priceLineRefs.current[id]);
-        delete priceLineRefs.current[id];
-      } catch {}
-    }
+  };
+
+  const clearAllCustomLines = () => {
+    setPriceLines([]);
   };
 
   const resetZoom = () => {
@@ -701,86 +1229,225 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
 
   const isPositive = priceChange >= 0;
 
+  // Compute distance percentages for immediate support/resistance
+  const s1Dist =
+    currentPrice && liveMetrics.pivots
+      ? (((liveMetrics.pivots.s1 - currentPrice) / currentPrice) * 100).toFixed(1)
+      : null;
+  const r1Dist =
+    currentPrice && liveMetrics.pivots
+      ? (((liveMetrics.pivots.r1 - currentPrice) / currentPrice) * 100).toFixed(1)
+      : null;
+  const pivotDist =
+    currentPrice && liveMetrics.pivots
+      ? (((liveMetrics.pivots.pivot - currentPrice) / currentPrice) * 100).toFixed(1)
+      : null;
+
   return (
-    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', width: '100%' }}>
       {/* ===================================================================== */}
-      {/* 1. TOP HEADER: Ticker, Price, Timestamp & Live Status */}
+      {/* 1. TOP HEADER: Clean Institutional Toolbar */}
       {/* ===================================================================== */}
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '12px 16px 8px',
-        borderBottom: '1px solid var(--color-border)',
-        gap: 12,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div>
-            <span style={{ fontWeight: 700, fontSize: '1.15rem', color: 'var(--color-text-primary)' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px 16px',
+          borderBottom: '1px solid var(--color-border)',
+          gap: 10,
+          background: 'rgba(13, 18, 32, 0.7)',
+        }}
+      >
+        {/* Left: Ticker, Live Price & Timeframes */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--color-text-primary)' }}>
               {ticker}
             </span>
             {currentPrice !== null && (
-              <span style={{
-                marginLeft: 10,
-                fontSize: '1.35rem',
-                fontWeight: 700,
-                fontVariantNumeric: 'tabular-nums',
-                color: 'var(--color-text-primary)',
-              }}>
+              <span
+                style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 700,
+                  fontVariantNumeric: 'tabular-nums',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
                 ${currentPrice.toFixed(2)}
               </span>
             )}
             {currentPrice !== null && (
-              <span style={{
-                marginLeft: 8,
-                color: isPositive ? 'var(--color-success)' : 'var(--color-danger)',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-              }}>
-                {isPositive ? '+' : ''}{priceChange.toFixed(2)}%
+              <span
+                style={{
+                  color: isPositive ? 'var(--color-success)' : 'var(--color-danger)',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                }}
+              >
+                {isPositive ? '+' : ''}
+                {priceChange.toFixed(2)}%
               </span>
             )}
           </div>
 
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 5,
-            background: 'rgba(255, 255, 255, 0.04)',
-            padding: '3px 8px',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: '0.72rem',
-            color: 'var(--color-text-secondary)',
-          }}>
-            <Clock size={12} color="var(--color-accent-bright)" />
-            <span>{lastTickTime ? `Updated: ${lastTickTime}` : 'Connecting...'}</span>
+          {/* Timeframe Pills */}
+          <div
+            style={{
+              display: 'flex',
+              background: 'rgba(255, 255, 255, 0.04)',
+              borderRadius: 'var(--radius-md)',
+              padding: 2,
+              border: '1px solid rgba(99, 131, 195, 0.15)',
+            }}
+          >
+            {(['1D', '5D', '1M', '3M', '6M', '1Y', 'YTD'] as Timeframe[]).map((tf) => (
+              <button
+                key={tf}
+                onClick={() => setTimeframe(tf)}
+                style={{
+                  background: timeframe === tf ? 'var(--color-accent-primary)' : 'transparent',
+                  color: timeframe === tf ? '#ffffff' : 'var(--color-text-secondary)',
+                  border: 'none',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '3px 8px',
+                  fontSize: '0.72rem',
+                  fontWeight: timeframe === tf ? 600 : 500,
+                  cursor: 'pointer',
+                  transition: 'all var(--transition-fast)',
+                }}
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
+
+          {/* Chart Style Switcher */}
+          <div
+            style={{
+              display: 'flex',
+              background: 'rgba(255, 255, 255, 0.04)',
+              borderRadius: 'var(--radius-md)',
+              padding: 2,
+              border: '1px solid rgba(99, 131, 195, 0.15)',
+            }}
+          >
+            {(['candlestick', 'area', 'line', 'bar'] as ChartType[]).map((type) => (
+              <button
+                key={type}
+                onClick={() => setChartType(type)}
+                style={{
+                  background: chartType === type ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
+                  color: chartType === type ? 'var(--color-accent-bright)' : 'var(--color-text-muted)',
+                  border: 'none',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '3px 8px',
+                  fontSize: '0.7rem',
+                  cursor: 'pointer',
+                  textTransform: 'capitalize',
+                  fontWeight: chartType === type ? 600 : 500,
+                }}
+              >
+                {type === 'candlestick' ? 'Candles' : type === 'bar' ? 'OHLC' : type}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* Right: Quick Indicator Overlay Toggles & Action Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {/* Quick 1-Click Indicator Pills */}
           <button
-            onClick={() => setShowEditor(!showEditor)}
-            className={`btn btn-secondary ${showEditor ? 'btn-active' : ''}`}
-            style={{
-              padding: '5px 10px',
-              fontSize: '0.78rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              background: showEditor ? 'var(--color-accent-primary)' : 'rgba(255,255,255,0.05)',
-              color: showEditor ? '#fff' : 'var(--color-text-secondary)',
-            }}
-            title="Toggle Technical Parameters & Indicator Overlays"
+            className={`indicator-pill ${indicators.sma ? 'active' : ''}`}
+            onClick={() => setIndicators((prev) => ({ ...prev, sma: !prev.sma }))}
+            title="Toggle Simple Moving Averages (SMA 20 Cyan & SMA 50 Amber)"
           >
-            <SlidersHorizontal size={14} />
-            <span>Technical Parameters</span>
+            <span className="indicator-dot" style={{ background: '#00d2ff' }} />
+            <span>SMA ({params.smaFast}/{params.smaSlow})</span>
           </button>
 
           <button
+            className={`indicator-pill ${indicators.ema ? 'active' : ''}`}
+            onClick={() => setIndicators((prev) => ({ ...prev, ema: !prev.ema }))}
+            title="Toggle Exponential Moving Averages (EMA 9 Pink & EMA 21 Green)"
+          >
+            <span className="indicator-dot" style={{ background: '#e879f9' }} />
+            <span>EMA ({params.emaFast}/{params.emaSlow})</span>
+          </button>
+
+          <button
+            className={`indicator-pill ${indicators.bb ? 'active' : ''}`}
+            onClick={() => setIndicators((prev) => ({ ...prev, bb: !prev.bb }))}
+            title="Toggle Bollinger Bands (20, 2σ)"
+          >
+            <span className="indicator-dot" style={{ background: '#38bdf8' }} />
+            <span>BB</span>
+          </button>
+
+          <button
+            className={`indicator-pill ${indicators.pivots ? 'active' : ''}`}
+            onClick={() => setIndicators((prev) => ({ ...prev, pivots: !prev.pivots }))}
+            title="Toggle Classical Pivot Lines (S1, R1, Pivot, S2, R2)"
+          >
+            <span className="indicator-dot" style={{ background: '#ef4444' }} />
+            <span>Pivots S/R</span>
+          </button>
+
+          <button
+            className={`indicator-pill ${indicators.fibonacci ? 'active' : ''}`}
+            onClick={() => setIndicators((prev) => ({ ...prev, fibonacci: !prev.fibonacci }))}
+            title="Toggle Fibonacci Retracement Levels"
+          >
+            <span className="indicator-dot" style={{ background: '#eab308' }} />
+            <span>Fibonacci</span>
+          </button>
+
+          <button
+            className={`indicator-pill ${indicators.patterns ? 'active' : ''}`}
+            onClick={() => setIndicators((prev) => ({ ...prev, patterns: !prev.patterns }))}
+            title="Toggle Golden/Death Cross Pattern Markers"
+          >
+            <span className="indicator-dot" style={{ background: '#10b981' }} />
+            <span>Patterns</span>
+          </button>
+
+          {/* Oscillators Sub-Panel Toggle */}
+          <div
+            style={{
+              display: 'flex',
+              background: 'rgba(255, 255, 255, 0.04)',
+              borderRadius: 'var(--radius-full)',
+              padding: 2,
+              border: '1px solid rgba(99, 131, 195, 0.2)',
+            }}
+          >
+            {(['none', 'rsi', 'macd', 'both'] as OscillatorView[]).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setOscillatorView(mode)}
+                style={{
+                  background: oscillatorView === mode ? 'rgba(168, 85, 247, 0.3)' : 'transparent',
+                  color: oscillatorView === mode ? '#c084fc' : 'var(--color-text-muted)',
+                  border: 'none',
+                  borderRadius: 'var(--radius-full)',
+                  padding: '2px 7px',
+                  fontSize: '0.68rem',
+                  fontWeight: oscillatorView === mode ? 700 : 500,
+                  cursor: 'pointer',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {mode === 'none' ? 'Sub: Off' : mode}
+              </button>
+            ))}
+          </div>
+
+          {/* Action Buttons */}
+          <button
             onClick={resetZoom}
             className="btn btn-secondary"
-            style={{ padding: '5px 8px', fontSize: '0.78rem' }}
+            style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: 'var(--radius-sm)' }}
             title="Reset Zoom / Fit View"
           >
             <RotateCcw size={13} />
@@ -789,463 +1456,689 @@ export function TradingViewChart({ ticker, height = 380 }: TradingViewChartProps
           <button
             onClick={takeSnapshot}
             className="btn btn-secondary"
-            style={{ padding: '5px 8px', fontSize: '0.78rem' }}
+            style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: 'var(--radius-sm)' }}
             title="Export High-Res PNG Chart"
           >
             <Camera size={13} />
+          </button>
+
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className={`btn btn-secondary ${drawerOpen ? 'btn-active' : ''}`}
+            style={{
+              padding: '4px 10px',
+              fontSize: '0.75rem',
+              borderRadius: 'var(--radius-sm)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              background: drawerOpen ? 'var(--color-accent-primary)' : 'rgba(255,255,255,0.05)',
+              color: drawerOpen ? '#fff' : 'var(--color-text-secondary)',
+            }}
+            title="Configure Indicator Parameters & Custom Price Lines"
+          >
+            <SlidersHorizontal size={13} />
+            <span>Settings</span>
           </button>
 
           <span
             className={`live-indicator ${isConnected ? 'pulsing' : ''}`}
             style={{
               color: isConnected ? 'var(--color-success)' : 'var(--color-text-muted)',
-              fontSize: '0.75rem',
+              fontSize: '0.72rem',
               fontWeight: 600,
               marginLeft: 4,
             }}
           >
-            {isConnected ? 'LIVE' : 'CONNECTING'}
+            {isConnected ? 'LIVE' : 'SYNCING'}
           </span>
         </div>
       </div>
 
       {/* ===================================================================== */}
-      {/* 2. TIMEFRAME & CHART TYPE TOOLBAR */}
+      {/* 2. KEY LEVELS & TECHNICAL BIAS SUMMARY RIBBON */}
       {/* ===================================================================== */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '6px 16px',
-        background: 'rgba(0, 0, 0, 0.2)',
-        borderBottom: '1px solid var(--color-border)',
-        fontSize: '0.75rem',
-      }}>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {(['1D', '5D', '1M', '3M', '6M', '1Y', 'YTD'] as Timeframe[]).map((tf) => (
-            <button
-              key={tf}
-              onClick={() => setTimeframe(tf)}
+      <div className="tech-ribbon">
+        {/* Left: Immediate S/R Levels & Pivot with distance % */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {liveMetrics.pivots && (
+            <>
+              <span className="tech-level-pill support" title="Classical Immediate Support 1">
+                <strong>S1:</strong> ${liveMetrics.pivots.s1} {s1Dist && `(${s1Dist}%)`}
+              </span>
+              <span className="tech-level-pill pivot" title="Classical Pivot Point">
+                <strong>Pivot:</strong> ${liveMetrics.pivots.pivot} {pivotDist && `(${pivotDist}%)`}
+              </span>
+              <span className="tech-level-pill resistance" title="Classical Immediate Resistance 1">
+                <strong>R1:</strong> ${liveMetrics.pivots.r1} {r1Dist && `(${r1Dist}%)`}
+              </span>
+            </>
+          )}
+
+          {liveMetrics.fibs && indicators.fibonacci && (
+            <span className="tech-level-pill fib" title="Key Fibonacci 61.8% Golden Ratio">
+              <strong>Fib 61.8%:</strong> ${liveMetrics.fibs.f618}
+            </span>
+          )}
+
+          {priceLines.length > 0 && (
+            <span
               style={{
-                background: timeframe === tf ? 'var(--color-accent-primary)' : 'transparent',
-                color: timeframe === tf ? '#ffffff' : 'var(--color-text-secondary)',
-                border: 'none',
+                fontSize: '0.7rem',
+                color: 'var(--color-accent-bright)',
+                background: 'rgba(59, 130, 246, 0.1)',
+                padding: '2px 8px',
                 borderRadius: 'var(--radius-sm)',
-                padding: '3px 8px',
-                fontSize: '0.75rem',
-                fontWeight: timeframe === tf ? 600 : 500,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
               }}
             >
-              {tf}
-            </button>
-          ))}
+              📌 {priceLines.length} Custom Level{priceLines.length > 1 ? 's' : ''}
+            </span>
+          )}
         </div>
 
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <span style={{ color: 'var(--color-text-muted)', marginRight: 4 }}>Type:</span>
-          {(['candlestick', 'area', 'line', 'bar'] as ChartType[]).map((type) => (
-            <button
-              key={type}
-              onClick={() => setChartType(type)}
-              style={{
-                background: chartType === type ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
-                color: chartType === type ? 'var(--color-accent-bright)' : 'var(--color-text-muted)',
-                border: `1px solid ${chartType === type ? 'var(--color-accent-primary)' : 'transparent'}`,
-                borderRadius: 'var(--radius-sm)',
-                padding: '2px 7px',
-                fontSize: '0.72rem',
-                cursor: 'pointer',
-                textTransform: 'capitalize',
-              }}
-            >
-              {type}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ===================================================================== */}
-      {/* 3. LIVE TECHNICAL METRICS SUMMARY RIBBON */}
-      {/* ===================================================================== */}
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '4px 16px',
-        background: 'rgba(15, 23, 42, 0.8)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-        fontSize: '0.72rem',
-        gap: 12,
-      }}>
-        {/* Left: RSI Gauge & Moving Averages */}
+        {/* Right: RSI status & Overall Technical Bias Badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          {/* RSI Gauge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem' }}>
             <Gauge size={13} color="var(--color-accent-bright)" />
             <span style={{ color: 'var(--color-text-secondary)' }}>RSI ({params.rsiPeriod}):</span>
-            <span style={{
-              fontWeight: 700,
-              padding: '1px 6px',
-              borderRadius: 3,
-              background: liveMetrics.rsiStatus === 'OVERSOLD'
-                ? 'rgba(16, 185, 129, 0.2)'
-                : liveMetrics.rsiStatus === 'OVERBOUGHT'
-                ? 'rgba(239, 68, 68, 0.2)'
-                : 'rgba(245, 158, 11, 0.2)',
-              color: liveMetrics.rsiStatus === 'OVERSOLD'
-                ? 'var(--color-success)'
-                : liveMetrics.rsiStatus === 'OVERBOUGHT'
-                ? 'var(--color-danger)'
-                : 'var(--color-warning)',
-            }}>
+            <span
+              style={{
+                fontWeight: 700,
+                padding: '1px 6px',
+                borderRadius: 3,
+                fontFamily: 'var(--font-mono)',
+                background:
+                  liveMetrics.rsiStatus === 'OVERSOLD'
+                    ? 'rgba(16, 185, 129, 0.2)'
+                    : liveMetrics.rsiStatus === 'OVERBOUGHT'
+                    ? 'rgba(239, 68, 68, 0.2)'
+                    : 'rgba(245, 158, 11, 0.2)',
+                color:
+                  liveMetrics.rsiStatus === 'OVERSOLD'
+                    ? 'var(--color-success)'
+                    : liveMetrics.rsiStatus === 'OVERBOUGHT'
+                    ? 'var(--color-danger)'
+                    : 'var(--color-warning)',
+              }}
+            >
               {liveMetrics.rsi} ({liveMetrics.rsiStatus})
             </span>
           </div>
 
-          {liveMetrics.smaFastVal !== null && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ color: '#3b82f6', fontWeight: 600 }}>SMA {params.smaFast}:</span>
-              <strong style={{ color: '#fff' }}>${liveMetrics.smaFastVal}</strong>
-            </div>
-          )}
-
-          {liveMetrics.smaSlowVal !== null && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ color: '#f59e0b', fontWeight: 600 }}>SMA {params.smaSlow}:</span>
-              <strong style={{ color: '#fff' }}>${liveMetrics.smaSlowVal}</strong>
-            </div>
-          )}
-
-          {liveMetrics.bbBandwidth !== null && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ color: '#06b6d4', fontWeight: 600 }}>BB Width:</span>
-              <strong style={{ color: '#fff' }}>{liveMetrics.bbBandwidth}%</strong>
-            </div>
-          )}
-        </div>
-
-        {/* Right: Crosshair Hover Stats */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          fontFamily: 'var(--font-mono)',
-          color: 'var(--color-text-secondary)',
-        }}>
-          {hoverData ? (
-            <>
-              <span style={{ color: 'var(--color-accent-bright)', fontWeight: 600 }}>📅 {hoverData.time}</span>
-              <span>O: <strong style={{ color: '#fff' }}>${hoverData.open.toFixed(2)}</strong></span>
-              <span>H: <strong style={{ color: '#fff' }}>${hoverData.high.toFixed(2)}</strong></span>
-              <span>L: <strong style={{ color: '#fff' }}>${hoverData.low.toFixed(2)}</strong></span>
-              <span>C: <strong style={{ color: '#fff' }}>${hoverData.close.toFixed(2)}</strong></span>
-              {hoverData.volume !== undefined && (
-                <span>Vol: <strong style={{ color: '#fff' }}>{(hoverData.volume / 1000000).toFixed(2)}M</strong></span>
-              )}
-            </>
-          ) : (
-            <span style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-              Hover over bars to inspect OHLCV figures
+          {/* Technical Bias Badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem' }}>
+            <Sparkles size={13} color="var(--color-accent-bright)" />
+            <span style={{ color: 'var(--color-text-secondary)' }}>Bias:</span>
+            <span
+              style={{
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-sm)',
+                letterSpacing: '0.03em',
+                background:
+                  liveMetrics.overallSignal.includes('BUY')
+                    ? 'rgba(16, 185, 129, 0.2)'
+                    : liveMetrics.overallSignal.includes('SELL')
+                    ? 'rgba(239, 68, 68, 0.2)'
+                    : 'rgba(245, 158, 11, 0.2)',
+                color:
+                  liveMetrics.overallSignal.includes('BUY')
+                    ? 'var(--color-success)'
+                    : liveMetrics.overallSignal.includes('SELL')
+                    ? 'var(--color-danger)'
+                    : 'var(--color-warning)',
+                border: `1px solid ${
+                  liveMetrics.overallSignal.includes('BUY')
+                    ? 'rgba(16, 185, 129, 0.4)'
+                    : liveMetrics.overallSignal.includes('SELL')
+                    ? 'rgba(239, 68, 68, 0.4)'
+                    : 'rgba(245, 158, 11, 0.4)'
+                }`,
+              }}
+            >
+              {liveMetrics.overallSignal}
             </span>
-          )}
+          </div>
         </div>
       </div>
 
       {/* ===================================================================== */}
-      {/* 4. EXPANDABLE TECHNICAL PARAMETERS & INDICATOR CONTROLS */}
+      {/* 3. CHART CANVAS CONTAINER + FLOATING HEADS-UP DISPLAY (HUD) */}
       {/* ===================================================================== */}
-      {showEditor && (
-        <div style={{
-          padding: '12px 16px',
-          background: 'rgba(15, 23, 42, 0.98)',
-          borderBottom: '1px solid var(--color-border)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}>
-          {/* Section A: Indicator Toggles */}
-          <div>
-            <p style={{
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              color: 'var(--color-text-primary)',
-              marginBottom: 8,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}>
-              <Layers size={14} color="var(--color-accent-bright)" />
-              Active Technical Indicators & Overlays:
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {[
-                { key: 'sma20', label: `SMA ${params.smaFast} (Fast)`, color: '#3b82f6' },
-                { key: 'sma50', label: `SMA ${params.smaSlow} (Slow)`, color: '#f59e0b' },
-                { key: 'ema9', label: `EMA ${params.emaFast}`, color: '#a855f7' },
-                { key: 'ema21', label: `EMA ${params.emaSlow}`, color: '#10b981' },
-                { key: 'bb', label: `Bollinger Bands (${params.bbPeriod}, ${params.bbStd}σ)`, color: '#06b6d4' },
-                { key: 'volume', label: 'Volume Sub-Chart', color: '#6366f1' },
-              ].map((ind) => {
-                const active = (indicators as any)[ind.key];
-                return (
-                  <button
-                    key={ind.key}
-                    onClick={() => setIndicators((prev) => ({ ...prev, [ind.key]: !active }))}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: 'var(--radius-sm)',
-                      border: `1px solid ${active ? ind.color : 'rgba(255,255,255,0.1)'}`,
-                      background: active ? `${ind.color}22` : 'transparent',
-                      color: active ? '#ffffff' : 'var(--color-text-muted)',
-                      fontSize: '0.72rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <span style={{
-                      width: 8, height: 8, borderRadius: '50%',
-                      background: ind.color, opacity: active ? 1 : 0.4,
-                    }} />
-                    <span>{ind.label}</span>
-                    {active ? <Eye size={12} /> : <EyeOff size={12} />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Section B: Custom Indicator Mathematical Parameters */}
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
-            <p style={{
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              color: 'var(--color-text-primary)',
-              marginBottom: 8,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}>
-              <Activity size={14} color="var(--color-accent-bright)" />
-              Custom Indicator Calculation Parameters:
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>
-                <span>SMA Fast:</span>
-                <input
-                  type="number"
-                  min="5"
-                  max="100"
-                  value={params.smaFast}
-                  onChange={(e) => setParams((p) => ({ ...p, smaFast: parseInt(e.target.value) || 20 }))}
-                  style={{
-                    width: 55,
-                    padding: '3px 6px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid var(--color-border)',
-                    color: '#fff',
-                    fontSize: '0.72rem',
-                  }}
-                />
-              </label>
-
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>
-                <span>SMA Slow:</span>
-                <input
-                  type="number"
-                  min="10"
-                  max="200"
-                  value={params.smaSlow}
-                  onChange={(e) => setParams((p) => ({ ...p, smaSlow: parseInt(e.target.value) || 50 }))}
-                  style={{
-                    width: 55,
-                    padding: '3px 6px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid var(--color-border)',
-                    color: '#fff',
-                    fontSize: '0.72rem',
-                  }}
-                />
-              </label>
-
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>
-                <span>BB Period:</span>
-                <input
-                  type="number"
-                  min="5"
-                  max="50"
-                  value={params.bbPeriod}
-                  onChange={(e) => setParams((p) => ({ ...p, bbPeriod: parseInt(e.target.value) || 20 }))}
-                  style={{
-                    width: 55,
-                    padding: '3px 6px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid var(--color-border)',
-                    color: '#fff',
-                    fontSize: '0.72rem',
-                  }}
-                />
-              </label>
-
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>
-                <span>BB StdDev:</span>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="1.0"
-                  max="4.0"
-                  value={params.bbStd}
-                  onChange={(e) => setParams((p) => ({ ...p, bbStd: parseFloat(e.target.value) || 2.0 }))}
-                  style={{
-                    width: 55,
-                    padding: '3px 6px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid var(--color-border)',
-                    color: '#fff',
-                    fontSize: '0.72rem',
-                  }}
-                />
-              </label>
-
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>
-                <span>RSI Period:</span>
-                <input
-                  type="number"
-                  min="5"
-                  max="30"
-                  value={params.rsiPeriod}
-                  onChange={(e) => setParams((p) => ({ ...p, rsiPeriod: parseInt(e.target.value) || 14 }))}
-                  style={{
-                    width: 55,
-                    padding: '3px 6px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid var(--color-border)',
-                    color: '#fff',
-                    fontSize: '0.72rem',
-                  }}
-                />
-              </label>
-            </div>
-          </div>
-
-          {/* Section C: Custom Price Line / Support & Resistance Annotations */}
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
-            <p style={{
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              color: 'var(--color-text-primary)',
-              marginBottom: 8,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}>
-              <TrendingUp size={14} color="var(--color-accent-bright)" />
-              Custom Statistical Support & Resistance Lines:
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Price ($)"
-                value={newLinePrice}
-                onChange={(e) => setNewLinePrice(e.target.value)}
+      <div style={{ position: 'relative', width: '100%', height }}>
+        {/* Floating Heads-Up Display (HUD) */}
+        <div className="chart-hud">
+          {/* Row 1: OHLCV Inspection */}
+          <div className="chart-hud-ohlcv">
+            <span style={{ color: 'var(--color-accent-bright)', fontWeight: 600 }}>
+              📅 {hoverData?.timeStr || lastTickTime || 'Latest'}
+            </span>
+            <span>
+              O: <strong style={{ color: '#fff' }}>${hoverData ? hoverData.open.toFixed(2) : currentPrice?.toFixed(2) || '—'}</strong>
+            </span>
+            <span>
+              H: <strong style={{ color: '#fff' }}>${hoverData ? hoverData.high.toFixed(2) : currentPrice?.toFixed(2) || '—'}</strong>
+            </span>
+            <span>
+              L: <strong style={{ color: '#fff' }}>${hoverData ? hoverData.low.toFixed(2) : currentPrice?.toFixed(2) || '—'}</strong>
+            </span>
+            <span>
+              C: <strong style={{ color: '#fff' }}>${hoverData ? hoverData.close.toFixed(2) : currentPrice?.toFixed(2) || '—'}</strong>
+            </span>
+            {hoverData?.volume !== undefined && (
+              <span>
+                Vol: <strong style={{ color: '#fff' }}>{(hoverData.volume / 1000000).toFixed(2)}M</strong>
+              </span>
+            )}
+            {hoverData?.changePct !== undefined && (
+              <span
                 style={{
-                  width: 100,
-                  padding: '4px 8px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid var(--color-border)',
-                  color: '#fff',
-                  fontSize: '0.75rem',
-                }}
-              />
-              <input
-                type="text"
-                placeholder="Label (e.g. Stop Loss)"
-                value={newLineLabel}
-                onChange={(e) => setNewLineLabel(e.target.value)}
-                style={{
-                  width: 140,
-                  padding: '4px 8px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid var(--color-border)',
-                  color: '#fff',
-                  fontSize: '0.75rem',
-                }}
-              />
-              <select
-                value={newLineColor}
-                onChange={(e) => setNewLineColor(e.target.value)}
-                style={{
-                  padding: '4px 8px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid var(--color-border)',
-                  color: '#fff',
-                  fontSize: '0.75rem',
+                  color: hoverData.changePct >= 0 ? 'var(--color-success)' : 'var(--color-danger)',
+                  fontWeight: 600,
                 }}
               >
-                <option value="#ef4444" style={{ background: '#0f172a' }}>🔴 Resistance / Stop</option>
-                <option value="#10b981" style={{ background: '#0f172a' }}>🟢 Support / Target</option>
-                <option value="#3b82f6" style={{ background: '#0f172a' }}>🔵 Entry Level</option>
-                <option value="#f59e0b" style={{ background: '#0f172a' }}>🟠 Pivot Level</option>
-              </select>
-              <button
-                onClick={addPriceLine}
-                className="btn btn-primary"
-                style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 4 }}
-              >
-                <Plus size={13} />
-                <span>Add Level</span>
-              </button>
-            </div>
+                {hoverData.changePct >= 0 ? '+' : ''}
+                {hoverData.changePct.toFixed(2)}%
+              </span>
+            )}
+          </div>
 
-            {/* Active Lines List */}
-            {priceLines.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                {priceLines.map((l) => (
-                  <span
-                    key={l.id}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '2px 8px',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'rgba(255,255,255,0.04)',
-                      border: `1px solid ${l.color}66`,
-                      fontSize: '0.7rem',
-                      color: l.color,
-                    }}
-                  >
-                    <span>{l.label}: ${l.price ? l.price.toFixed(2) : 'Dynamic'}</span>
-                    <Trash2
-                      size={11}
-                      onClick={() => removePriceLine(l.id)}
-                      style={{ cursor: 'pointer', opacity: 0.8 }}
-                    />
-                  </span>
-                ))}
-              </div>
+          {/* Row 2: Live Indicator Values at Hover/Latest Point */}
+          <div className="chart-hud-indicators">
+            {indicators.sma && (
+              <>
+                <span style={{ color: '#00d2ff' }}>
+                  SMA({params.smaFast}): <strong>${hoverData?.smaFast ?? liveMetrics.smaFastVal ?? '—'}</strong>
+                </span>
+                <span style={{ color: '#ffb703' }}>
+                  SMA({params.smaSlow}): <strong>${hoverData?.smaSlow ?? liveMetrics.smaSlowVal ?? '—'}</strong>
+                </span>
+              </>
+            )}
+
+            {indicators.ema && (
+              <>
+                <span style={{ color: '#e879f9' }}>
+                  EMA({params.emaFast}): <strong>${hoverData?.emaFast ?? liveMetrics.emaFastVal ?? '—'}</strong>
+                </span>
+                <span style={{ color: '#10b981' }}>
+                  EMA({params.emaSlow}): <strong>${hoverData?.emaSlow ?? liveMetrics.emaSlowVal ?? '—'}</strong>
+                </span>
+              </>
+            )}
+
+            {indicators.bb && (
+              <span style={{ color: '#38bdf8' }}>
+                BB({params.bbPeriod}, {params.bbStd}σ): [
+                <strong>${hoverData?.bbLower ?? (liveMetrics.pivots ? (liveMetrics.pivots.pivot * 0.96).toFixed(2) : '—')}</strong> -{' '}
+                <strong>${hoverData?.bbUpper ?? (liveMetrics.pivots ? (liveMetrics.pivots.pivot * 1.04).toFixed(2) : '—')}</strong>]
+              </span>
+            )}
+
+            {hoverData?.rsiVal !== undefined && hoverData?.rsiVal !== null && (
+              <span style={{ color: '#c084fc' }}>
+                RSI: <strong>{hoverData.rsiVal}</strong>
+              </span>
             )}
           </div>
         </div>
-      )}
+
+        {/* AI Advisor Directive Toast Notification */}
+        {directiveToast && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 16,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 30,
+              background: 'rgba(59, 130, 246, 0.9)',
+              backdropFilter: 'blur(10px)',
+              color: '#ffffff',
+              padding: '6px 14px',
+              borderRadius: 'var(--radius-full)',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              boxShadow: '0 4px 20px rgba(59, 130, 246, 0.4)',
+              animation: 'fadeIn 0.2s ease-out',
+            }}
+          >
+            <Sparkles size={14} />
+            <span>{directiveToast}</span>
+          </div>
+        )}
+
+        {/* TradingView Lightweight Chart Canvas */}
+        <div ref={containerRef} style={{ width: '100%', height }} />
+
+        {/* =================================================================== */}
+        {/* 4. SLIDE-OVER SETTINGS & ANNOTATIONS DRAWER */}
+        {/* =================================================================== */}
+        {drawerOpen && (
+          <div className="chart-drawer-backdrop" onClick={() => setDrawerOpen(false)}>
+            <div className="chart-drawer" onClick={(e) => e.stopPropagation()}>
+              {/* Drawer Header */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '14px 18px',
+                  borderBottom: '1px solid var(--color-border)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <SlidersHorizontal size={16} color="var(--color-accent-bright)" />
+                  <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text-primary)' }}>
+                    Chart Tools & Parameters
+                  </span>
+                </div>
+                <button
+                  onClick={() => setDrawerOpen(false)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--color-text-muted)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Drawer Tabs */}
+              <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)' }}>
+                <button
+                  className={`drawer-tab-btn ${drawerTab === 'params' ? 'active' : ''}`}
+                  onClick={() => setDrawerTab('params')}
+                >
+                  Parameters
+                </button>
+                <button
+                  className={`drawer-tab-btn ${drawerTab === 'lines' ? 'active' : ''}`}
+                  onClick={() => setDrawerTab('lines')}
+                >
+                  Annotations ({priceLines.length})
+                </button>
+                <button
+                  className={`drawer-tab-btn ${drawerTab === 'levels' ? 'active' : ''}`}
+                  onClick={() => setDrawerTab('levels')}
+                >
+                  Key Levels
+                </button>
+                <button
+                  className={`drawer-tab-btn ${drawerTab === 'zones' ? 'active' : ''}`}
+                  onClick={() => setDrawerTab('zones')}
+                >
+                  Zones
+                </button>
+              </div>
+
+              {/* Drawer Body Content */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px' }}>
+                {/* TAB 1: PARAMETERS */}
+                {drawerTab === 'params' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div>
+                      <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 10 }}>
+                        Moving Average Lengths
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>SMA Fast Period</label>
+                          <input
+                            type="number"
+                            min="5"
+                            max="100"
+                            value={params.smaFast}
+                            onChange={(e) => setParams((p) => ({ ...p, smaFast: parseInt(e.target.value) || 20 }))}
+                            className="input"
+                            style={{ marginTop: 4, padding: '6px 8px', fontSize: '0.78rem' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>SMA Slow Period</label>
+                          <input
+                            type="number"
+                            min="10"
+                            max="200"
+                            value={params.smaSlow}
+                            onChange={(e) => setParams((p) => ({ ...p, smaSlow: parseInt(e.target.value) || 50 }))}
+                            className="input"
+                            style={{ marginTop: 4, padding: '6px 8px', fontSize: '0.78rem' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>EMA Fast Period</label>
+                          <input
+                            type="number"
+                            min="5"
+                            max="50"
+                            value={params.emaFast}
+                            onChange={(e) => setParams((p) => ({ ...p, emaFast: parseInt(e.target.value) || 9 }))}
+                            className="input"
+                            style={{ marginTop: 4, padding: '6px 8px', fontSize: '0.78rem' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>EMA Slow Period</label>
+                          <input
+                            type="number"
+                            min="10"
+                            max="100"
+                            value={params.emaSlow}
+                            onChange={(e) => setParams((p) => ({ ...p, emaSlow: parseInt(e.target.value) || 21 }))}
+                            className="input"
+                            style={{ marginTop: 4, padding: '6px 8px', fontSize: '0.78rem' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: 14 }}>
+                      <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 10 }}>
+                        Volatility & Oscillators
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>Bollinger Period</label>
+                          <input
+                            type="number"
+                            min="10"
+                            max="50"
+                            value={params.bbPeriod}
+                            onChange={(e) => setParams((p) => ({ ...p, bbPeriod: parseInt(e.target.value) || 20 }))}
+                            className="input"
+                            style={{ marginTop: 4, padding: '6px 8px', fontSize: '0.78rem' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>BB StdDev Multiplier</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="1.0"
+                            max="4.0"
+                            value={params.bbStd}
+                            onChange={(e) => setParams((p) => ({ ...p, bbStd: parseFloat(e.target.value) || 2.0 }))}
+                            className="input"
+                            style={{ marginTop: 4, padding: '6px 8px', fontSize: '0.78rem' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>RSI Length</label>
+                          <input
+                            type="number"
+                            min="5"
+                            max="30"
+                            value={params.rsiPeriod}
+                            onChange={(e) => setParams((p) => ({ ...p, rsiPeriod: parseInt(e.target.value) || 14 }))}
+                            className="input"
+                            style={{ marginTop: 4, padding: '6px 8px', fontSize: '0.78rem' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: CUSTOM ANNOTATIONS */}
+                {drawerTab === 'lines' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: 12, borderRadius: 'var(--radius-md)' }}>
+                      <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 8 }}>
+                        Add Custom Price Line
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="Target Price ($)"
+                          value={newLinePrice}
+                          onChange={(e) => setNewLinePrice(e.target.value)}
+                          className="input"
+                          style={{ padding: '6px 10px', fontSize: '0.78rem' }}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Label (e.g. Stop Loss, Take Profit)"
+                          value={newLineLabel}
+                          onChange={(e) => setNewLineLabel(e.target.value)}
+                          className="input"
+                          style={{ padding: '6px 10px', fontSize: '0.78rem' }}
+                        />
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <select
+                            value={newLineColor}
+                            onChange={(e) => setNewLineColor(e.target.value)}
+                            className="input"
+                            style={{ padding: '6px 10px', fontSize: '0.78rem', flex: 1 }}
+                          >
+                            <option value="#ef4444" style={{ background: '#0f172a' }}>🔴 Resistance / Stop Loss</option>
+                            <option value="#10b981" style={{ background: '#0f172a' }}>🟢 Support / Take Profit</option>
+                            <option value="#3b82f6" style={{ background: '#0f172a' }}>🔵 Entry Zone</option>
+                            <option value="#f59e0b" style={{ background: '#0f172a' }}>🟠 Pivot / Target</option>
+                          </select>
+                          <button onClick={addPriceLine} className="btn btn-primary" style={{ padding: '6px 14px', fontSize: '0.78rem' }}>
+                            <Plus size={14} /> Add
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Active Lines List */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                          Active Price Lines ({priceLines.length})
+                        </span>
+                        {priceLines.length > 0 && (
+                          <button
+                            onClick={clearAllCustomLines}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'var(--color-danger)',
+                              fontSize: '0.7rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Clear All
+                          </button>
+                        )}
+                      </div>
+
+                      {priceLines.length === 0 ? (
+                        <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                          No custom price lines added yet. Add a level above or receive them automatically from AI Advisor analysis.
+                        </p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {priceLines.map((l) => (
+                            <div
+                              key={l.id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '6px 10px',
+                                borderRadius: 'var(--radius-sm)',
+                                background: 'rgba(255, 255, 255, 0.04)',
+                                border: `1px solid ${l.color}44`,
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: l.color }} />
+                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fff' }}>{l.label}</span>
+                                <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: l.color }}>
+                                  ${l.price.toFixed(2)}
+                                </span>
+                              </div>
+                              <Trash2
+                                size={13}
+                                onClick={() => removePriceLine(l.id)}
+                                style={{ cursor: 'pointer', color: 'var(--color-text-muted)' }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 3: KEY LEVELS BREAKDOWN */}
+                {drawerTab === 'levels' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {liveMetrics.pivots && (
+                      <div>
+                        <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 8 }}>
+                          Classical Support & Resistance
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f43f5e' }}>
+                            <span>Resistance 2 (R2):</span> <strong>${liveMetrics.pivots.r2}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ef4444' }}>
+                            <span>Resistance 1 (R1):</span> <strong>${liveMetrics.pivots.r1}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#60a5fa' }}>
+                            <span>Central Pivot (P):</span> <strong>${liveMetrics.pivots.pivot}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#34d399' }}>
+                            <span>Support 1 (S1):</span> <strong>${liveMetrics.pivots.s1}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#059669' }}>
+                            <span>Support 2 (S2):</span> <strong>${liveMetrics.pivots.s2}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {liveMetrics.fibs && (
+                      <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: 12 }}>
+                        <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 8 }}>
+                          Fibonacci Retracement Grid
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                            <span>100.0% (Swing High):</span> <strong>${liveMetrics.fibs.f100}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899' }}>
+                            <span>78.6% Retracement:</span> <strong>${liveMetrics.fibs.f786}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#c084fc' }}>
+                            <span>61.8% Golden Ratio:</span> <strong>${liveMetrics.fibs.f618}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#eab308' }}>
+                            <span>50.0% Equilibrium:</span> <strong>${liveMetrics.fibs.f500}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38bdf8' }}>
+                            <span>38.2% Retracement:</span> <strong>${liveMetrics.fibs.f382}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#22d3ee' }}>
+                            <span>23.6% Retracement:</span> <strong>${liveMetrics.fibs.f236}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                            <span>0.0% (Swing Low):</span> <strong>${liveMetrics.fibs.f0}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 4: SUPPLY & DEMAND ZONES */}
+                {drawerTab === 'zones' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                      Institutional Liquidity & Order Block Zones
+                    </p>
+                    {liveMetrics.pivots ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '10px 12px',
+                          }}
+                        >
+                          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-danger)' }}>
+                            🔴 Supply / Distribution Block (R1 - R2)
+                          </div>
+                          <div style={{ fontSize: '0.78rem', fontFamily: 'var(--font-mono)', color: '#fff', marginTop: 4 }}>
+                            ${liveMetrics.pivots.r1} — ${liveMetrics.pivots.r2}
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
+                            Heavy institutional selling pressure & take-profit zone.
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '10px 12px',
+                          }}
+                        >
+                          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-success)' }}>
+                            🟢 Demand / Accumulation Block (S1 - S2)
+                          </div>
+                          <div style={{ fontSize: '0.78rem', fontFamily: 'var(--font-mono)', color: '#fff', marginTop: 4 }}>
+                            ${liveMetrics.pivots.s2} — ${liveMetrics.pivots.s1}
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
+                            Institutional accumulation & dip-buying liquidity buffer.
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>Calculating liquidity zones...</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ===================================================================== */}
-      {/* 5. TRADINGVIEW CANVAS */}
+      {/* 5. SYNCHRONIZED OSCILLATOR SUB-PANEL (RSI / MACD) */}
       {/* ===================================================================== */}
-      <div ref={containerRef} style={{ height }} />
+      {oscillatorView !== 'none' && (
+        <div
+          style={{
+            borderTop: '1px solid var(--color-border)',
+            background: 'rgba(8, 11, 20, 0.6)',
+            padding: '4px 16px 8px',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
+              {oscillatorView === 'rsi'
+                ? `Wilder's RSI (${params.rsiPeriod}) Oscillator`
+                : oscillatorView === 'macd'
+                ? 'MACD (12, 26, 9) Momentum Histogram'
+                : 'Oscillator Sub-Panel (RSI & MACD)'}
+            </span>
+            <button
+              onClick={() => setOscillatorView('none')}
+              style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', fontSize: '0.65rem', cursor: 'pointer' }}
+            >
+              Hide
+            </button>
+          </div>
+          <div ref={oscContainerRef} style={{ width: '100%', height: 110 }} />
+        </div>
+      )}
     </div>
   );
 }
